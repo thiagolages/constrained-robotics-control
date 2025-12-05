@@ -1,0 +1,2390 @@
+<html>
+<style>
+.controller:hover{opacity:1 !important;}
+</style>
+<body>
+<div id='canvas_container_176455489108339' style='width:1000px;height:1000px;position:relative'>
+<div id='loading_screen_176455489108339' style='width:1000px;height:1000px;position:relative; background-color: #19bd39;text-align:center;align-items:center;display:flex;justify-content:center'> 
+ <img src='https://cdn.jsdelivr.net/gh/UAIbot/uaibot_data@master/SVG/logo_uai_bot.svg' style='width:200px;height:114px'/>
+ </div>
+<script id='MathJax-script' async src='https://cdn.jsdelivr.net/npm/mathjax@3.0.1/es5/tex-mml-chtml.js'></script>
+<canvas id='scene_176455489108339' width='1000px' height='1000px'></canvas>
+<!-- USER DIVS GO HERE --><div class = 'controller' style='width:1000px;height:30px;'></div>
+</div>
+
+ <script type="module">
+import {
+	Object3D, Vector3, BoxBufferGeometry, Color, Mesh, MeshBasicMaterial, PerspectiveCamera, OrthographicCamera,
+	Scene, WebGLRenderer, AmbientLight, DirectionalLight, HemisphereLight, MeshStandardMaterial,
+	AxesHelper, GridHelper, Matrix4, SphereBufferGeometry, CylinderBufferGeometry, ConeGeometry, Group, LoadingManager, MeshPhysicalMaterial, Vector2, FrontSide,
+	BackSide, DoubleSide, PMREMGenerator, TextureLoader, PointLight, UVMapping, CubeReflectionMapping, CubeRefractionMapping,
+	EquirectangularReflectionMapping, EquirectangularRefractionMapping, CubeUVReflectionMapping,
+	CubeUVRefractionMapping, RepeatWrapping, ClampToEdgeWrapping, MirroredRepeatWrapping,
+	NearestFilter, LinearFilter, NearestMipmapNearestFilter, NearestMipmapLinearFilter, LinearMipmapNearestFilter,
+	LinearMipmapLinearFilter, BufferGeometry, Float32BufferAttribute, PointsMaterial, Points, ArrowHelper, TextGeometry, CubeTextureLoader, sRGBEncoding
+} from 'https://cdn.skypack.dev/three@0.135.0/build/three.module.js';
+import { OrbitControls } from 'https://cdn.skypack.dev/three@0.135.0/examples/jsm/controls/OrbitControls.js';
+import { OBJLoader } from 'https://cdn.skypack.dev/three@0.135.0/examples/jsm/loaders/OBJLoader.js';
+import { STLLoader } from 'https://cdn.skypack.dev/three@0.135.0/examples/jsm/loaders/STLLoader.js';
+import { MTLLoader } from 'https://cdn.skypack.dev/three@0.135.0/examples/jsm/loaders/MTLLoader.js';
+import { GLTFLoader } from 'https://cdn.skypack.dev/three@0.135.0/examples/jsm/loaders/GLTFLoader.js';
+import { ColladaLoader } from 'https://cdn.skypack.dev/three@0.135.0/examples/jsm/loaders/ColladaLoader.js';
+import { GUI } from 'https://cdn.skypack.dev/dat.gui';
+import { ParametricGeometry } from 'https://cdn.skypack.dev/three@0.135.0/examples/jsm/geometries/ParametricGeometry.js'
+
+
+//--------------------SIMULATION ELEMENTS---------------------
+
+const delay = 500; 
+ const maxTime = 3.189999999999976; 
+ const cameraType= 'perspective'; 
+ const sceneID= '176455489108339'; 
+ const showWorldFrame=true; 
+ const showGrid=true; 
+ const backgroundColor='#F5F6FA'; 
+ const ambientLightIntensity = 4;
+ const ldrUrls = [];
+ const cameraStartPose = [1.76, 1.1, 1.45, 0.0, 0.0, 0.0, 1.0];
+ //SIMULATION PARAMETERS GO HERE
+
+function elapsedMs() {
+	return (new Date()).getTime();
+}
+
+
+class Objsim {
+	constructor(_frames) {
+		this.frames = _frames;
+		this.currentFrame = 0;
+		this.shape = "I HAVE NO SHAPE YET";
+	}
+
+	hasLoaded() {
+		return true;
+	}
+
+	nextFrame() {
+		while ((this.currentFrame < this.frames.length - 1) && (1000 * this.frames[this.currentFrame + 1][0] + delay < (elapsedMs() - startMs))) {
+			this.currentFrame += 1;
+		}
+	}
+	setFrameTime(time) {
+		this.currentFrame = 0;
+		while ((this.currentFrame < this.frames.length - 1) && (this.frames[this.currentFrame + 1][0] < time)) {
+			this.currentFrame += 1;
+		}
+	}
+	showFrame() {
+		this.shape.matrix.set(this.frames[this.currentFrame][1], this.frames[this.currentFrame][2], this.frames[this.currentFrame][3], this.frames[this.currentFrame][4],
+			this.frames[this.currentFrame][5], this.frames[this.currentFrame][6], this.frames[this.currentFrame][7], this.frames[this.currentFrame][8],
+			this.frames[this.currentFrame][9], this.frames[this.currentFrame][10], this.frames[this.currentFrame][11], this.frames[this.currentFrame][12],
+			this.frames[this.currentFrame][13], this.frames[this.currentFrame][14], this.frames[this.currentFrame][15], this.frames[this.currentFrame][16]);
+
+
+	}
+	setEnvMap(envMap) {
+		this.shape.material.envMap = envMap;
+		this.shape.material.needsUpdate = true;
+	}
+}
+
+class Box extends Objsim {
+	constructor(_width, _height, _depth, _frames, _material) {
+		super(_frames);
+		this.width = _width;
+		this.height = _height;
+		this.depth = _depth;
+		const geometry = new BoxBufferGeometry(this.width, this.height, this.depth);
+		const cube = new Mesh(geometry, _material);
+		cube.matrixAutoUpdate = false;
+		this.shape = cube;
+	}
+}
+
+class Ball extends Objsim {
+	constructor(_radius, _frames, _material) {
+		super(_frames);
+		this.radius = _radius;
+		const geometry = new SphereBufferGeometry(this.radius, 64, 32);
+		const sphere = new Mesh(geometry, _material);
+		sphere.matrixAutoUpdate = false;
+		this.shape = sphere;
+	}
+}
+
+class Cylinder extends Objsim {
+	constructor(_radius, _height, _frames, _material) {
+		super(_frames);
+		this.radius = _radius;
+		this.height = _height;
+		const geometry = new CylinderBufferGeometry(this.radius, this.radius, this.height, 20);
+		const cylinder = new Mesh(geometry, _material);
+		cylinder.matrixAutoUpdate = false;
+		this.shape = cylinder;
+	}
+}
+
+class Cone extends Objsim {
+	constructor(_radius, _height, _frames, _material) {
+		super(_frames);
+		this.radius = _radius;
+		this.height = _height;
+		const geometry = new ConeGeometry(this.radius, this.height, 20, 5, false, 0.0, 6.28);
+		const cone = new Mesh(geometry, _material);
+		cone.matrixAutoUpdate = false;
+		this.shape = cone;
+	}
+}
+
+function signFun(x, n) {
+	return Math.sign(x) * (Math.pow(Math.abs(x), n))
+}
+
+class SmoothBox extends Objsim {
+
+
+
+	constructor(_width, _height, _depth, _frames, _material) {
+		super(_frames);
+		this.width = _width;
+		this.height = _height;
+		this.depth = _depth;
+
+		const geometry = new ParametricGeometry(function fun(u, v, target) {
+			let cosu = signFun(Math.cos(0.0001 * Math.PI + 0.9999 * Math.PI * u), 0.5)
+			let sinu = signFun(Math.sin(0.0001 * Math.PI + 0.9999 * Math.PI * u), 0.5)
+			let cosv = signFun(Math.cos(2 * Math.PI * v), 0.5)
+			let sinv = signFun(Math.sin(2 * Math.PI * v), 0.5)
+
+			let x = (_width / 2) * sinu * cosv;
+			let y = (_height / 2) * sinu * sinv;
+			let z = (_depth / 2) * cosu;
+
+			target.set(x, y, z);
+
+		}, 25, 25);
+
+
+		const smoothCube = new Mesh(geometry, _material);
+		smoothCube.matrixAutoUpdate = false;
+		this.shape = smoothCube;
+	}
+
+
+
+}
+
+class ConvexPolytope extends Objsim {
+
+
+
+	constructor(_vertexes, _faces, _frames, _material) {
+		super(_frames);
+		this.vertexes = _vertexes;
+		this.faces = _faces;
+
+
+		const geometry = new BufferGeometry();
+		const verticesArray = [];
+		const indicesArray = [];
+
+		// this.vertexes.forEach(v => {
+		// 	verticesArray.push(v[0], v[1], v[2]);
+		// });
+
+		this.vertexes.forEach(v => {
+			verticesArray.push(v[0], v[2], -v[1]);
+		});
+
+		this.faces.forEach(f => {
+			indicesArray.push(f[0], f[2], f[1]);
+		});
+
+		// this.faces.forEach(f => {
+		// 	indicesArray.push(f[0], f[1], f[2]);
+		// });
+
+
+		geometry.setAttribute(
+			"position",
+			new Float32BufferAttribute(verticesArray, 3)
+		);
+		geometry.setIndex(indicesArray);
+		geometry.computeVertexNormals();
+
+		const polytope = new Mesh(geometry, _material);
+		polytope.matrixAutoUpdate = false;
+		this.shape = polytope;
+	}
+
+
+
+}
+
+class PointCloud extends Objsim {
+
+	constructor(_points, _frames, _color, _size) {
+		super(_frames);
+
+		this.color = _color;
+		this.points = _points
+		this.size = _size;
+
+		const vertices = []
+		const geometry = new BufferGeometry();
+		geometry.setAttribute('position', new Float32BufferAttribute(vertices, 3));
+		const material = new PointsMaterial({ color: this.color, size: this.size });
+		this.shape = new Points(geometry, material);
+	}
+
+	showFrame() {
+		const vertices = [];
+
+		for (let i = this.frames[this.currentFrame][1]; i < this.frames[this.currentFrame][2]; i++) {
+			vertices.push(this.points[0][i], this.points[1][i], this.points[2][i]);
+		}
+
+		this.shape.geometry.setAttribute('position', new Float32BufferAttribute(vertices, 3));
+
+	}
+
+	setEnvMap(envMap) { }
+
+}
+
+class RigidObject extends Objsim {
+
+	constructor(_frames, _list_3dobject) {
+		super(_frames);
+
+		this.shape = new Group();
+		this.shape.matrixAutoUpdate = false;
+
+		const manager = new LoadingManager();
+
+		let loader;
+
+		for (let i = 0; i < _list_3dobject.length; i++) {
+			const _3dobject = _list_3dobject[i];
+			if (_3dobject.type === 'obj') {
+				loader = new OBJLoader(manager);
+				loader.load(_3dobject.url, (root) => {
+
+					root.scale.set(_3dobject.scale, _3dobject.scale, _3dobject.scale);
+					root.applyMatrix4(_3dobject.matrix)
+
+					root.traverse(function (child) {
+						if (child instanceof Mesh) {
+							child.material = _3dobject.mesh_material;
+						}
+					});
+
+					this.shape.add(root);
+				});
+			}
+			if (_3dobject.type === 'stl') {
+				loader = new STLLoader(manager);
+				loader.load(_3dobject.url, (root) => {
+					const mesh = new Mesh(root);
+
+					mesh.scale.set(_3dobject.scale, _3dobject.scale, _3dobject.scale);
+					mesh.applyMatrix4(_3dobject.matrix)
+
+					mesh.traverse(function (child) {
+						if (child instanceof Mesh) {
+							child.material = _3dobject.mesh_material;
+						}
+					});
+
+					this.shape.add(mesh);
+				});
+			}
+			if (_3dobject.type === 'dae') {
+				loader = new ColladaLoader(manager);
+				loader.load(_3dobject.url, (root) => {
+					const group = root.scene;
+
+					group.scale.set(_3dobject.scale, _3dobject.scale, _3dobject.scale);
+					group.applyMatrix4(_3dobject.matrix)
+
+					group.traverse(function (child) {
+						if (child instanceof Mesh) {
+							child.material = _3dobject.mesh_material;
+						}
+					});
+
+					this.shape.add(group);
+				});
+			}
+		}
+
+	}
+
+	setEnvMapTemp(variable, envMap) {
+		if (variable instanceof Mesh) {
+			variable.material.envMap = envMap;
+			variable.material.needsUpdate = true;
+		}
+		else if (variable instanceof Group) {
+			for (let i = 0; i < variable.children.length; i++) {
+				this.setEnvMapTemp(variable.children[i]);
+			}
+		}
+	}
+	setEnvMap(envMap) {
+		this.setEnvMapTemp(this.shape, envMap);
+	}
+
+}
+
+class Vector extends Objsim {
+
+
+	constructor(_frames, _color, _thickness, _origin, _dir, _length) {
+		super(_frames);
+
+		this.color = _color;
+		this.thickness = _thickness
+		this.origin = new Vector3(_origin[0], _origin[1], _origin[2]);
+		this.dir = new Vector3(_dir[0], _dir[1], _dir[2]);
+		this._length = length
+
+		this.shape = new ArrowHelper(this.dir, this.origin, this.length, this.color);
+		this.shape.line.material.linewidth = this.thickness;
+
+	}
+
+	showFrame() {
+		this.shape.setLength(this.frames[this.currentFrame][3]);
+		const dir = this.frames[this.currentFrame][2];
+		const origin = this.frames[this.currentFrame][1];
+
+		this.shape.setDirection(new Vector3(dir[0], dir[1], dir[2]));
+		this.shape.position.set(origin[0], origin[1], origin[2]);
+	}
+	setEnvMap(envMap) { }
+}
+
+class PointLightSim extends Objsim {
+
+
+	constructor(_frames) {
+		super(_frames);
+		this.shape = new PointLight(this.frames[0][1], this.frames[0][2], this.frames[0][3]);
+		this.shape.position.set(this.frames[0][4][0], this.frames[0][4][1], this.frames[0][4][2]);
+	}
+
+	showFrame() {
+		this.shape.color.set(this.frames[this.currentFrame][1]);
+		this.shape.intensity = this.frames[this.currentFrame][2];
+		this.shape.distance = this.frames[this.currentFrame][3];
+		this.shape.position.set(this.frames[this.currentFrame][4][0], this.frames[this.currentFrame][4][1], this.frames[this.currentFrame][4][2]);
+	}
+	setEnvMap(envMap) { }
+}
+
+class HTMLDiv extends Objsim {
+
+	constructor(_id, _frames) {
+		super(_frames);
+		this.id = _id;
+		this.shape = undefined;
+	}
+
+	showFrame() {
+		var element = document.getElementById(this.id);
+
+		element.innerHTML = this.frames[this.currentFrame][1];
+		element.style.position = "absolute";
+		element.style = this.frames[this.currentFrame][2];
+	}
+	setEnvMap(envMap) { }
+}
+
+class Robot extends Objsim {
+
+	constructor(_objBase, _link, _frames, _htm_base_0, _htm_n_eef, _eef_frame_visible) {
+		super(_frames);
+
+		this.loadedObjs = 0
+		this.links = _link;
+
+		this.totalNumberOfObjects = _objBase.length;
+
+		for (let i = 0; i < this.links.length; i++) {
+			this.totalNumberOfObjects += this.links[i].model3d.length;
+		}
+
+		this.htm_base_0 = _htm_base_0;
+
+		//Function that creates a generic robot
+		const base = new Group();
+		base.name = "base";
+
+		const baseFrame = new Group();
+		baseFrame.name = "baseFrame";
+		baseFrame.applyMatrix4(this.htm_base_0);
+
+
+		//Create link groups
+		let linkGroupList = [];
+
+		for (let i = 0; i <= this.links.length; i++) {
+
+			var linkGroup = new Group();
+			linkGroup.name = "linkFrame" + i.toString();
+			linkGroupList.push(linkGroup);
+
+			linkGroup = new Group();
+			linkGroup.name = "link" + i.toString();
+			//var axesHelper = new AxesHelper(0.2);
+			//axesHelper.matrixAutoUpdate = false;
+			//axesHelper.visible = true;
+			//linkGroup.add(axesHelper)
+
+			if (i < this.links.length) {
+				linkGroup.rotateZ(this.links[i].theta);
+				linkGroup.translateZ(this.links[i].d);
+				linkGroup.rotateX(this.links[i].alpha);
+				linkGroup.translateX(this.links[i].a);
+			}
+
+
+			linkGroup.updateMatrix();
+
+			linkGroupList.push(linkGroup);
+		}
+
+		var linkGroup = new Group();
+		linkGroup.name = "eefFrame";
+		linkGroupList.push(linkGroup);
+
+		linkGroup = new Group();
+		linkGroup.name = "eef";
+		// var axesHelper = new AxesHelper(0.2);
+		// axesHelper.matrixAutoUpdate = false;
+		// axesHelper.visible = _eef_frame_visible;
+		// linkGroup.add(axesHelper);
+		linkGroup.applyMatrix4(_htm_n_eef)
+		linkGroup.updateMatrix();
+		linkGroupList.push(linkGroup);
+
+
+		base.add(baseFrame)
+		baseFrame.add(linkGroupList[0])
+
+		for (let i = 0; i < linkGroupList.length - 1; i++) {
+			linkGroupList[i].add(linkGroupList[i + 1])
+		}
+
+		//Load 3D models
+
+		this.shape = base;
+		this.shape.matrixAutoUpdate = false;
+
+		this.loadObj(_objBase, "base", "base", false)
+		for (let i = 0; i < this.links.length - 1; i++) {
+			this.loadObj(this.links[i].model3d, "link" + (i + 1).toString(), "link" + (i).toString(), this.links[i].showFrame)
+		}
+		this.loadObj(this.links[this.links.length - 1].model3d, "link" + (this.links.length).toString(), "link" + (this.links.length).toString(), false)
+
+		this.delta_config = []
+
+		for (let i = 0; i < this.links.length; i++) {
+			if (this.links[i].jointType == 0) {
+				this.delta_config.push(this.shape.getObjectByName("link" + (i).toString()).rotation.z)
+			}
+			if (this.links[i].jointType == 1) {
+				this.delta_config.push(this.shape.getObjectByName("link" + (i).toString()).position.z)
+
+			}
+		}
+
+	}
+
+	loadObj(obj, name1, name2, axisVisible) {
+
+		const manager = new LoadingManager();
+		const objLoader = new OBJLoader(manager);
+		const stlLoader = new STLLoader(manager);
+		const colladaLoader = new ColladaLoader(manager);
+		const mtlLoader = new MTLLoader(manager);
+		const gltfloader = new GLTFLoader(manager);
+
+
+		for (let i = 0; i < obj.length; i++) {
+
+
+			if (obj[i].type == "obj") {
+				if (obj[i].mesh_material.type == 'mtl') {
+					mtlLoader.load(obj[i].mesh_material.url, (materials) => {
+						materials.preload();
+
+						objLoader.setMaterials(materials);
+						objLoader.load(obj[i].url, (root) => {
+							root.scale.set(obj[i].scale, obj[i].scale, obj[i].scale);
+							root.applyMatrix4(obj[i].matrix);
+
+							// Override opacity if specified
+							const userOpacity = obj[i].mesh_material?.opacity;
+							if (userOpacity !== undefined) {
+								root.traverse((child) => {
+									if (child instanceof Mesh && child.material) {
+										if (Array.isArray(child.material)) {
+											child.material.forEach((mat) => {
+												if (mat) {
+													mat.opacity = userOpacity;
+													mat.transparent = userOpacity < 1.0;
+													mat.needsUpdate = true;
+												}
+											});
+										} else {
+											child.material.opacity = userOpacity;
+											child.material.transparent = userOpacity < 1.0;
+											child.material.needsUpdate = true;
+										}
+									}
+								});
+							}
+
+
+							this.shape.getObjectByName(name2).add(root);
+							this.loadedObjs += 1;
+						});
+					});
+				} else {
+					objLoader.load(obj[i].url, (root) => {
+						root.scale.set(obj[i].scale, obj[i].scale, obj[i].scale);
+						root.applyMatrix4(obj[i].matrix);
+
+						root.traverse((child) => {
+							if (child instanceof Mesh) {
+								child.material = obj[i].mesh_material;
+							}
+						});
+
+						this.shape.getObjectByName(name2).add(root);
+						this.loadedObjs += 1;
+					});
+				}
+			}
+			if (obj[i].type == "stl") {
+				stlLoader.load(obj[i].url, (root) => {
+					const mesh = new Mesh(root);
+					mesh.scale.set(obj[i].scale, obj[i].scale, obj[i].scale);
+					mesh.applyMatrix4(obj[i].matrix)
+
+					mesh.traverse(function (child) {
+						if (child instanceof Mesh) {
+							child.material = obj[i].mesh_material;
+						}
+					});
+
+					this.shape.getObjectByName(name2).add(mesh);
+					this.loadedObjs += 1
+				});
+			}
+			if (obj[i].type == "dae") {
+				colladaLoader.load(obj[i].url, (root) => {
+					const group = root.scene;
+					group.scale.set(obj[i].scale, obj[i].scale, obj[i].scale);
+					group.applyMatrix4(obj[i].matrix)
+
+					group.traverse(function (child) {
+						if (child instanceof Mesh) {
+							child.material = obj[i].mesh_material;
+						}
+					});
+
+					this.shape.getObjectByName(name2).add(group);
+					this.loadedObjs += 1
+				});
+			}
+			if (obj[i].type == "glb") {
+				gltfloader.load(obj[i].url, (root) => {
+					const group = root.scene;
+					group.scale.set(obj[i].scale, obj[i].scale, obj[i].scale);
+					group.applyMatrix4(obj[i].matrix);
+
+					if (obj[i].mesh_material.type !== 'glb') {
+						group.traverse(function (child) {
+							if (child instanceof Mesh) {
+								child.material = obj[i].mesh_material;
+							}
+						});
+					}
+					else {
+						const userOpacity = obj[i].mesh_material?.opacity;
+						if (userOpacity !== undefined) {
+							group.traverse((child) => {
+								if (child instanceof Mesh && child.material) {
+									if (Array.isArray(child.material)) {
+										child.material.forEach((mat) => {
+											if (mat) {
+												mat.opacity = userOpacity;
+												mat.transparent = userOpacity < 1.0;
+												mat.needsUpdate = true;
+												mat.material.format = 1023;
+											}
+										});
+									} else {
+										child.material.opacity = userOpacity;
+										child.material.transparent = userOpacity < 1.0;
+										child.material.needsUpdate = true;
+										child.material.format = 1023;
+									}
+								}
+							});
+						}
+					}
+
+					this.shape.getObjectByName(name2).add(group);
+					this.loadedObjs += 1;
+				});
+			}
+
+		}
+
+		// this.shape.getObjectByName(name1).getObjectByProperty("type", "AxesHelper").visible = axisVisible;
+	}
+
+	hasLoaded() {
+		return this.loadedObjs == this.totalNumberOfObjects;
+	}
+
+	//Function that updates frames
+	showFrame() {
+		//setting robot position
+		this.shape.matrix.set(this.frames[this.currentFrame][1], this.frames[this.currentFrame][2], this.frames[this.currentFrame][3], this.frames[this.currentFrame][4],
+			this.frames[this.currentFrame][5], this.frames[this.currentFrame][6], this.frames[this.currentFrame][7], this.frames[this.currentFrame][8],
+			this.frames[this.currentFrame][9], this.frames[this.currentFrame][10], this.frames[this.currentFrame][11], this.frames[this.currentFrame][12],
+			this.frames[this.currentFrame][13], this.frames[this.currentFrame][14], this.frames[this.currentFrame][15], this.frames[this.currentFrame][16]);
+		//setting robot configuration
+
+		if (this.frames[this.currentFrame][17] != undefined) {
+
+			for (let i = 0; i < this.links.length; i++) {
+				const linkName = "linkFrame" + (i).toString();
+
+				if (this.links[i].jointType == 0) {
+					this.shape.getObjectByName(linkName).rotation.z = this.frames[this.currentFrame][17][i] + this.delta_config[i];
+				} else if (this.links[i].jointType == 1) {
+					this.shape.getObjectByName(linkName).position.z = this.frames[this.currentFrame][17][i] + this.delta_config[i];
+				}
+
+			}
+		}
+	}
+
+	setEnvMapTemp(variable, envMap) {
+		if (variable instanceof Mesh) {
+			variable.material.envMap = envMap;
+			variable.material.needsUpdate = true;
+		}
+		else if (variable instanceof Group) {
+			for (let i = 0; i < variable.children.length; i++) {
+				this.setEnvMapTemp(variable.children[i], envMap);
+			}
+		}
+	}
+	setEnvMap(envMap) {
+		this.setEnvMapTemp(this.shape, envMap);
+	}
+}
+
+//------------------------------------------------------------
+
+//--------------- BASIC ELEMENTS OF ANY SCENE ----------------
+
+Object3D.DefaultUp = new Vector3(0, 0, 1); //Pointing Z axis up
+const canvas = document.getElementById('scene_' + sceneID);// Selecting canvas
+
+const scene = new Scene();//Instantiate the Scene
+scene.background = new Color(backgroundColor);//Set background color
+
+let camera;
+
+if (cameraType == "perspective") {
+	camera = new PerspectiveCamera(60, canvas.clientWidth / canvas.clientHeight, 0.1, 100);//Instantiate a camera
+}
+if (cameraType == "orthographic") {
+	camera = new OrthographicCamera(-3.2, 3.2, 2.4, -2.4, 0.01, 100);
+}
+
+
+
+var ambientLight = new HemisphereLight('white', 'darkslategrey', 3);//Instantiate Ambient light
+ambientLight.intensity = ambientLightIntensity;
+scene.add(ambientLight);
+
+const controls = new OrbitControls(camera, canvas);	//Instantiate orbit controls
+//controls.target.set(0, 0, 0);//Point camera at the origin
+
+camera.position.set(cameraStartPose[0], cameraStartPose[1], cameraStartPose[2]);
+//camera.rotation.set(cameraStartPose[3], cameraStartPose[4], cameraStartPose[5]);
+camera.lookAt(cameraStartPose[3], cameraStartPose[4], cameraStartPose[5]);
+camera.zoom = cameraStartPose[6];
+camera.updateProjectionMatrix();
+
+const renderer = new WebGLRenderer({ canvas, antialias: true });//Instantiate renderer
+renderer.physicallyCorrectLights = true;//Enable physically Correct Lights
+renderer.setSize(canvas.clientWidth, canvas.clientHeight);//Set render size
+renderer.setPixelRatio(window.devicePixelRatio*0.9);//Set pixel ratio
+
+let sceneElements = [];
+
+// if (showWorldFrame) {
+// 	const axesHelper = new AxesHelper(0.5);
+// 	axesHelper.renderOrder = 1;
+// 	scene.add(axesHelper);
+// }
+
+if (showGrid) {
+	const gridHelper = new GridHelper(6, 12);
+	scene.add(gridHelper);
+	gridHelper.rotation.x = 3.14 / 2;
+}
+
+
+
+
+
+//------------------------------------------------------------
+
+//--------------- ADDING ELEMENTS TO THIS SCENE ---------------
+
+//BEGIN DECLARATION OF THE GROUP 'var_group_id_127668062109552'
+
+
+//BEGIN DECLARATION OF THE CYLINDER 'var_cylinder_id_127668062093904'
+
+const material_var_cylinder_id_127668062093904 = new MeshPhysicalMaterial({
+opacity: 1,
+transparent: false,
+aoMapIntensity: 1,
+bumpScale: 1,
+color: "red",
+emissive: "black",
+emissiveIntensity: 1,
+envMapIntensity: 1,
+flatShading: false,
+lightMapIntensity: 1,
+metalness: 0,
+normalScale: new Vector2(1,1),
+refractionRatio: 0.98,
+roughness: 1,
+clearcoat: 0,
+clearcoatNormalScale: new Vector2(1,1),
+clearcoatRoughness: 0,
+ior: 1.5,
+reflectivity: 0.5,
+sheen: 0,
+sheenRoughness: 1,
+sheenColor: "white",
+specularIntensity: 0,
+specularColor: "white",
+transmission: 0,
+});
+
+
+const var_var_cylinder_id_127668062093904 = new Cylinder(0.004,0.5,[[0, 0.0, 1.0, -0.0, 0.25, 0.0, 0.0, -1.0, 0.0, -1.0, 0.0, -0.0, 0.0, 0, 0, 0, 1]], material_var_cylinder_id_127668062093904);
+sceneElements.push(var_var_cylinder_id_127668062093904);
+
+
+//BEGIN DECLARATION OF THE CONE 'var_cone_id_127668062093760'
+
+const material_var_cone_id_127668062093760 = new MeshPhysicalMaterial({
+opacity: 1,
+transparent: false,
+aoMapIntensity: 1,
+bumpScale: 1,
+color: "red",
+emissive: "black",
+emissiveIntensity: 1,
+envMapIntensity: 1,
+flatShading: false,
+lightMapIntensity: 1,
+metalness: 0,
+normalScale: new Vector2(1,1),
+refractionRatio: 0.98,
+roughness: 1,
+clearcoat: 0,
+clearcoatNormalScale: new Vector2(1,1),
+clearcoatRoughness: 0,
+ior: 1.5,
+reflectivity: 0.5,
+sheen: 0,
+sheenRoughness: 1,
+sheenColor: "white",
+specularIntensity: 0,
+specularColor: "white",
+transmission: 0,
+});
+
+
+const var_var_cone_id_127668062093760 = new Cone(0.01,0.175,[[0, 0.0, 1.0, -0.0, 0.5, 0.0, 0.0, -1.0, 0.0, -1.0, 0.0, -0.0, 0.0, 0, 0, 0, 1]], material_var_cone_id_127668062093760);
+sceneElements.push(var_var_cone_id_127668062093760);
+
+
+//BEGIN DECLARATION OF THE CYLINDER 'var_cylinder_id_127668062093568'
+
+const material_var_cylinder_id_127668062093568 = new MeshPhysicalMaterial({
+opacity: 1,
+transparent: false,
+aoMapIntensity: 1,
+bumpScale: 1,
+color: "lime",
+emissive: "black",
+emissiveIntensity: 1,
+envMapIntensity: 1,
+flatShading: false,
+lightMapIntensity: 1,
+metalness: 0,
+normalScale: new Vector2(1,1),
+refractionRatio: 0.98,
+roughness: 1,
+clearcoat: 0,
+clearcoatNormalScale: new Vector2(1,1),
+clearcoatRoughness: 0,
+ior: 1.5,
+reflectivity: 0.5,
+sheen: 0,
+sheenRoughness: 1,
+sheenColor: "white",
+specularIntensity: 0,
+specularColor: "white",
+transmission: 0,
+});
+
+
+const var_var_cylinder_id_127668062093568 = new Cylinder(0.004,0.5,[[0, 1.0, 0.0, -0.0, 0.0, 0.0, 1.0, -0.0, 0.25, 0.0, 0.0, 1.0, 0.0, 0, 0, 0, 1]], material_var_cylinder_id_127668062093568);
+sceneElements.push(var_var_cylinder_id_127668062093568);
+
+
+//BEGIN DECLARATION OF THE CONE 'var_cone_id_127668062093712'
+
+const material_var_cone_id_127668062093712 = new MeshPhysicalMaterial({
+opacity: 1,
+transparent: false,
+aoMapIntensity: 1,
+bumpScale: 1,
+color: "lime",
+emissive: "black",
+emissiveIntensity: 1,
+envMapIntensity: 1,
+flatShading: false,
+lightMapIntensity: 1,
+metalness: 0,
+normalScale: new Vector2(1,1),
+refractionRatio: 0.98,
+roughness: 1,
+clearcoat: 0,
+clearcoatNormalScale: new Vector2(1,1),
+clearcoatRoughness: 0,
+ior: 1.5,
+reflectivity: 0.5,
+sheen: 0,
+sheenRoughness: 1,
+sheenColor: "white",
+specularIntensity: 0,
+specularColor: "white",
+transmission: 0,
+});
+
+
+const var_var_cone_id_127668062093712 = new Cone(0.01,0.175,[[0, 1.0, 0.0, -0.0, 0.0, 0.0, 1.0, -0.0, 0.5, 0.0, 0.0, 1.0, 0.0, 0, 0, 0, 1]], material_var_cone_id_127668062093712);
+sceneElements.push(var_var_cone_id_127668062093712);
+
+
+//BEGIN DECLARATION OF THE CYLINDER 'var_cylinder_id_127668062109648'
+
+const material_var_cylinder_id_127668062109648 = new MeshPhysicalMaterial({
+opacity: 1,
+transparent: false,
+aoMapIntensity: 1,
+bumpScale: 1,
+color: "blue",
+emissive: "black",
+emissiveIntensity: 1,
+envMapIntensity: 1,
+flatShading: false,
+lightMapIntensity: 1,
+metalness: 0,
+normalScale: new Vector2(1,1),
+refractionRatio: 0.98,
+roughness: 1,
+clearcoat: 0,
+clearcoatNormalScale: new Vector2(1,1),
+clearcoatRoughness: 0,
+ior: 1.5,
+reflectivity: 0.5,
+sheen: 0,
+sheenRoughness: 1,
+sheenColor: "white",
+specularIntensity: 0,
+specularColor: "white",
+transmission: 0,
+});
+
+
+const var_var_cylinder_id_127668062109648 = new Cylinder(0.004,0.5,[[0, 1.0, 0.0, -0.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 1.0, -0.0, 0.25, 0, 0, 0, 1]], material_var_cylinder_id_127668062109648);
+sceneElements.push(var_var_cylinder_id_127668062109648);
+
+
+//BEGIN DECLARATION OF THE CONE 'var_cone_id_127668062109312'
+
+const material_var_cone_id_127668062109312 = new MeshPhysicalMaterial({
+opacity: 1,
+transparent: false,
+aoMapIntensity: 1,
+bumpScale: 1,
+color: "blue",
+emissive: "black",
+emissiveIntensity: 1,
+envMapIntensity: 1,
+flatShading: false,
+lightMapIntensity: 1,
+metalness: 0,
+normalScale: new Vector2(1,1),
+refractionRatio: 0.98,
+roughness: 1,
+clearcoat: 0,
+clearcoatNormalScale: new Vector2(1,1),
+clearcoatRoughness: 0,
+ior: 1.5,
+reflectivity: 0.5,
+sheen: 0,
+sheenRoughness: 1,
+sheenColor: "white",
+specularIntensity: 0,
+specularColor: "white",
+transmission: 0,
+});
+
+
+const var_var_cone_id_127668062109312 = new Cone(0.01,0.175,[[0, 1.0, 0.0, -0.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 1.0, -0.0, 0.5, 0, 0, 0, 1]], material_var_cone_id_127668062109312);
+sceneElements.push(var_var_cone_id_127668062109312);
+
+
+
+//BEGIN DECLARATION OF THE BALL 'var_ball_id_127668062065360'
+
+const material_var_ball_id_127668062065360 = new MeshPhysicalMaterial({
+opacity: 1,
+transparent: false,
+aoMapIntensity: 1,
+bumpScale: 1,
+color: "yellow",
+emissive: "black",
+emissiveIntensity: 1,
+envMapIntensity: 1,
+flatShading: false,
+lightMapIntensity: 1,
+metalness: 0,
+normalScale: new Vector2(1,1),
+refractionRatio: 0.98,
+roughness: 1,
+clearcoat: 0,
+clearcoatNormalScale: new Vector2(1,1),
+clearcoatRoughness: 0,
+ior: 1.5,
+reflectivity: 0.5,
+sheen: 0,
+sheenRoughness: 1,
+sheenColor: "white",
+specularIntensity: 0,
+specularColor: "white",
+transmission: 0,
+});
+
+
+const var_var_ball_id_127668062065360 = new Ball(0.3,[[0, 1.0, 0.0, 0.0, -1.8234, 0.0, 1.0, 0.0, 0.6672, 0.0, 0.0, 1.0, 0.0679, 0, 0, 0, 1], [0.01, 1.0, 0.0, 0.0, -1.823, 0.0, 1.0, 0.0, 0.6472, 0.0, 0.0, 1.0, 0.06, 0, 0, 0, 1], [0.02, 1.0, 0.0, 0.0, -1.8216, 0.0, 1.0, 0.0, 0.6272, 0.0, 0.0, 1.0, 0.0519, 0, 0, 0, 1], [0.03, 1.0, 0.0, 0.0, -1.819, 0.0, 1.0, 0.0, 0.6072, 0.0, 0.0, 1.0, 0.0435, 0, 0, 0, 1], [0.04, 1.0, 0.0, 0.0, -1.8153, 0.0, 1.0, 0.0, 0.5872, 0.0, 0.0, 1.0, 0.0349, 0, 0, 0, 1], [0.05, 1.0, 0.0, 0.0, -1.8105, 0.0, 1.0, 0.0, 0.5672, 0.0, 0.0, 1.0, 0.0261, 0, 0, 0, 1], [0.060000000000000005, 1.0, 0.0, 0.0, -1.8052, 0.0, 1.0, 0.0, 0.5472, 0.0, 0.0, 1.0, 0.0174, 0, 0, 0, 1], [0.07, 1.0, 0.0, 0.0, -1.7997, 0.0, 1.0, 0.0, 0.5272, 0.0, 0.0, 1.0, 0.0091, 0, 0, 0, 1], [0.08, 1.0, 0.0, 0.0, -1.7941, 0.0, 1.0, 0.0, 0.5072, 0.0, 0.0, 1.0, 0.0011, 0, 0, 0, 1], [0.09, 1.0, 0.0, 0.0, -1.7883, 0.0, 1.0, 0.0, 0.4872, 0.0, 0.0, 1.0, -0.0066, 0, 0, 0, 1], [0.09999999999999999, 1.0, 0.0, 0.0, -1.7824, 0.0, 1.0, 0.0, 0.4672, 0.0, 0.0, 1.0, -0.0139, 0, 0, 0, 1], [0.10999999999999999, 1.0, 0.0, 0.0, -1.7763, 0.0, 1.0, 0.0, 0.4472, 0.0, 0.0, 1.0, -0.0208, 0, 0, 0, 1], [0.11999999999999998, 1.0, 0.0, 0.0, -1.7701, 0.0, 1.0, 0.0, 0.4272, 0.0, 0.0, 1.0, -0.0275, 0, 0, 0, 1], [0.12999999999999998, 1.0, 0.0, 0.0, -1.7636, 0.0, 1.0, 0.0, 0.4072, 0.0, 0.0, 1.0, -0.0338, 0, 0, 0, 1], [0.13999999999999999, 1.0, 0.0, 0.0, -1.757, 0.0, 1.0, 0.0, 0.3872, 0.0, 0.0, 1.0, -0.0398, 0, 0, 0, 1], [0.15, 1.0, 0.0, 0.0, -1.7509, 0.0, 1.0, 0.0, 0.3672, 0.0, 0.0, 1.0, -0.0452, 0, 0, 0, 1], [0.16, 1.0, 0.0, 0.0, -1.7455, 0.0, 1.0, 0.0, 0.3472, 0.0, 0.0, 1.0, -0.0499, 0, 0, 0, 1], [0.17, 1.0, 0.0, 0.0, -1.7407, 0.0, 1.0, 0.0, 0.3272, 0.0, 0.0, 1.0, -0.0539, 0, 0, 0, 1], [0.18000000000000002, 1.0, 0.0, 0.0, -1.7363, 0.0, 1.0, 0.0, 0.3072, 0.0, 0.0, 1.0, -0.0575, 0, 0, 0, 1], [0.19000000000000003, 1.0, 0.0, 0.0, -1.732, 0.0, 1.0, 0.0, 0.2872, 0.0, 0.0, 1.0, -0.0611, 0, 0, 0, 1], [0.20000000000000004, 1.0, 0.0, 0.0, -1.728, 0.0, 1.0, 0.0, 0.2672, 0.0, 0.0, 1.0, -0.0646, 0, 0, 0, 1], [0.21000000000000005, 1.0, 0.0, 0.0, -1.7241, 0.0, 1.0, 0.0, 0.2472, 0.0, 0.0, 1.0, -0.0682, 0, 0, 0, 1], [0.22000000000000006, 1.0, 0.0, 0.0, -1.7203, 0.0, 1.0, 0.0, 0.2272, 0.0, 0.0, 1.0, -0.0718, 0, 0, 0, 1], [0.23000000000000007, 1.0, 0.0, 0.0, -1.7167, 0.0, 1.0, 0.0, 0.2072, 0.0, 0.0, 1.0, -0.0754, 0, 0, 0, 1], [0.24000000000000007, 1.0, 0.0, 0.0, -1.7132, 0.0, 1.0, 0.0, 0.1872, 0.0, 0.0, 1.0, -0.0789, 0, 0, 0, 1], [0.25000000000000006, 1.0, 0.0, 0.0, -1.7099, 0.0, 1.0, 0.0, 0.1672, 0.0, 0.0, 1.0, -0.0825, 0, 0, 0, 1], [0.26000000000000006, 1.0, 0.0, 0.0, -1.7067, 0.0, 1.0, 0.0, 0.1472, 0.0, 0.0, 1.0, -0.086, 0, 0, 0, 1], [0.2700000000000001, 1.0, 0.0, 0.0, -1.7038, 0.0, 1.0, 0.0, 0.1272, 0.0, 0.0, 1.0, -0.0892, 0, 0, 0, 1], [0.2800000000000001, 1.0, 0.0, 0.0, -1.7011, 0.0, 1.0, 0.0, 0.1072, 0.0, 0.0, 1.0, -0.0923, 0, 0, 0, 1], [0.2900000000000001, 1.0, 0.0, 0.0, -1.6987, 0.0, 1.0, 0.0, 0.0872, 0.0, 0.0, 1.0, -0.0952, 0, 0, 0, 1], [0.3000000000000001, 1.0, 0.0, 0.0, -1.6965, 0.0, 1.0, 0.0, 0.0672, 0.0, 0.0, 1.0, -0.0979, 0, 0, 0, 1], [0.3100000000000001, 1.0, 0.0, 0.0, -1.6946, 0.0, 1.0, 0.0, 0.0472, 0.0, 0.0, 1.0, -0.1005, 0, 0, 0, 1], [0.3200000000000001, 1.0, 0.0, 0.0, -1.6928, 0.0, 1.0, 0.0, 0.0272, 0.0, 0.0, 1.0, -0.1029, 0, 0, 0, 1], [0.3300000000000001, 1.0, 0.0, 0.0, -1.6913, 0.0, 1.0, 0.0, 0.0072, 0.0, 0.0, 1.0, -0.1051, 0, 0, 0, 1], [0.34000000000000014, 1.0, 0.0, 0.0, -1.6899, 0.0, 1.0, 0.0, -0.0128, 0.0, 0.0, 1.0, -0.1072, 0, 0, 0, 1], [0.35000000000000014, 1.0, 0.0, 0.0, -1.6887, 0.0, 1.0, 0.0, -0.0328, 0.0, 0.0, 1.0, -0.1092, 0, 0, 0, 1], [0.36000000000000015, 1.0, 0.0, 0.0, -1.6877, 0.0, 1.0, 0.0, -0.0528, 0.0, 0.0, 1.0, -0.111, 0, 0, 0, 1], [0.37000000000000016, 1.0, 0.0, 0.0, -1.6869, 0.0, 1.0, 0.0, -0.0728, 0.0, 0.0, 1.0, -0.1126, 0, 0, 0, 1], [0.38000000000000017, 1.0, 0.0, 0.0, -1.6862, 0.0, 1.0, 0.0, -0.0928, 0.0, 0.0, 1.0, -0.1142, 0, 0, 0, 1], [0.3900000000000002, 1.0, 0.0, 0.0, -1.6857, 0.0, 1.0, 0.0, -0.1128, 0.0, 0.0, 1.0, -0.1156, 0, 0, 0, 1], [0.4000000000000002, 1.0, 0.0, 0.0, -1.6853, 0.0, 1.0, 0.0, -0.1328, 0.0, 0.0, 1.0, -0.1169, 0, 0, 0, 1], [0.4100000000000002, 1.0, 0.0, 0.0, -1.6851, 0.0, 1.0, 0.0, -0.1528, 0.0, 0.0, 1.0, -0.1181, 0, 0, 0, 1], [0.4200000000000002, 1.0, 0.0, 0.0, -1.685, 0.0, 1.0, 0.0, -0.1728, 0.0, 0.0, 1.0, -0.1192, 0, 0, 0, 1], [0.4300000000000002, 1.0, 0.0, 0.0, -1.6849, 0.0, 1.0, 0.0, -0.1928, 0.0, 0.0, 1.0, -0.1202, 0, 0, 0, 1], [0.4400000000000002, 1.0, 0.0, 0.0, -1.685, 0.0, 1.0, 0.0, -0.2128, 0.0, 0.0, 1.0, -0.1211, 0, 0, 0, 1], [0.45000000000000023, 1.0, 0.0, 0.0, -1.6852, 0.0, 1.0, 0.0, -0.2328, 0.0, 0.0, 1.0, -0.1219, 0, 0, 0, 1], [0.46000000000000024, 1.0, 0.0, 0.0, -1.6855, 0.0, 1.0, 0.0, -0.2528, 0.0, 0.0, 1.0, -0.1227, 0, 0, 0, 1], [0.47000000000000025, 1.0, 0.0, 0.0, -1.6858, 0.0, 1.0, 0.0, -0.2728, 0.0, 0.0, 1.0, -0.1233, 0, 0, 0, 1], [0.48000000000000026, 1.0, 0.0, 0.0, -1.6863, 0.0, 1.0, 0.0, -0.2928, 0.0, 0.0, 1.0, -0.1239, 0, 0, 0, 1], [0.49000000000000027, 1.0, 0.0, 0.0, -1.6867, 0.0, 1.0, 0.0, -0.3128, 0.0, 0.0, 1.0, -0.1245, 0, 0, 0, 1], [0.5000000000000002, 1.0, 0.0, 0.0, -1.6873, 0.0, 1.0, 0.0, -0.3328, 0.0, 0.0, 1.0, -0.1249, 0, 0, 0, 1], [0.5100000000000002, 1.0, 0.0, 0.0, -1.6878, 0.0, 1.0, 0.0, -0.3528, 0.0, 0.0, 1.0, -0.1254, 0, 0, 0, 1], [0.5200000000000002, 1.0, 0.0, 0.0, -1.6884, 0.0, 1.0, 0.0, -0.3728, 0.0, 0.0, 1.0, -0.1257, 0, 0, 0, 1], [0.5300000000000002, 1.0, 0.0, 0.0, -1.6891, 0.0, 1.0, 0.0, -0.3928, 0.0, 0.0, 1.0, -0.1261, 0, 0, 0, 1], [0.5400000000000003, 1.0, 0.0, 0.0, -1.6897, 0.0, 1.0, 0.0, -0.4128, 0.0, 0.0, 1.0, -0.1264, 0, 0, 0, 1], [0.5500000000000003, 1.0, 0.0, 0.0, -1.6903, 0.0, 1.0, 0.0, -0.4328, 0.0, 0.0, 1.0, -0.1266, 0, 0, 0, 1], [0.5600000000000003, 1.0, 0.0, 0.0, -1.6908, 0.0, 1.0, 0.0, -0.4527, 0.0, 0.0, 1.0, -0.127, 0, 0, 0, 1], [0.5700000000000003, 1.0, 0.0, 0.0, -1.6913, 0.0, 1.0, 0.0, -0.4725, 0.0, 0.0, 1.0, -0.1273, 0, 0, 0, 1], [0.5800000000000003, 1.0, 0.0, 0.0, -1.6916, 0.0, 1.0, 0.0, -0.4922, 0.0, 0.0, 1.0, -0.1277, 0, 0, 0, 1], [0.5900000000000003, 1.0, 0.0, 0.0, -1.6918, 0.0, 1.0, 0.0, -0.5119, 0.0, 0.0, 1.0, -0.1281, 0, 0, 0, 1], [0.6000000000000003, 1.0, 0.0, 0.0, -1.6918, 0.0, 1.0, 0.0, -0.5315, 0.0, 0.0, 1.0, -0.1285, 0, 0, 0, 1], [0.6100000000000003, 1.0, 0.0, 0.0, -1.6918, 0.0, 1.0, 0.0, -0.551, 0.0, 0.0, 1.0, -0.129, 0, 0, 0, 1], [0.6200000000000003, 1.0, 0.0, 0.0, -1.6917, 0.0, 1.0, 0.0, -0.5704, 0.0, 0.0, 1.0, -0.1295, 0, 0, 0, 1], [0.6300000000000003, 1.0, 0.0, 0.0, -1.6915, 0.0, 1.0, 0.0, -0.5898, 0.0, 0.0, 1.0, -0.1301, 0, 0, 0, 1], [0.6400000000000003, 1.0, 0.0, 0.0, -1.6911, 0.0, 1.0, 0.0, -0.6091, 0.0, 0.0, 1.0, -0.1307, 0, 0, 0, 1], [0.6500000000000004, 1.0, 0.0, 0.0, -1.6907, 0.0, 1.0, 0.0, -0.6284, 0.0, 0.0, 1.0, -0.1313, 0, 0, 0, 1], [0.6600000000000004, 1.0, 0.0, 0.0, -1.6901, 0.0, 1.0, 0.0, -0.6475, 0.0, 0.0, 1.0, -0.132, 0, 0, 0, 1], [0.6700000000000004, 1.0, 0.0, 0.0, -1.6894, 0.0, 1.0, 0.0, -0.6666, 0.0, 0.0, 1.0, -0.1327, 0, 0, 0, 1], [0.6800000000000004, 1.0, 0.0, 0.0, -1.6886, 0.0, 1.0, 0.0, -0.6857, 0.0, 0.0, 1.0, -0.1335, 0, 0, 0, 1], [0.6900000000000004, 1.0, 0.0, 0.0, -1.6877, 0.0, 1.0, 0.0, -0.7046, 0.0, 0.0, 1.0, -0.1343, 0, 0, 0, 1], [0.7000000000000004, 1.0, 0.0, 0.0, -1.6866, 0.0, 1.0, 0.0, -0.7235, 0.0, 0.0, 1.0, -0.1352, 0, 0, 0, 1], [0.7100000000000004, 1.0, 0.0, 0.0, -1.6854, 0.0, 1.0, 0.0, -0.7424, 0.0, 0.0, 1.0, -0.1361, 0, 0, 0, 1], [0.7200000000000004, 1.0, 0.0, 0.0, -1.6841, 0.0, 1.0, 0.0, -0.7611, 0.0, 0.0, 1.0, -0.1371, 0, 0, 0, 1], [0.7300000000000004, 1.0, 0.0, 0.0, -1.6827, 0.0, 1.0, 0.0, -0.7798, 0.0, 0.0, 1.0, -0.1381, 0, 0, 0, 1], [0.7400000000000004, 1.0, 0.0, 0.0, -1.6811, 0.0, 1.0, 0.0, -0.7984, 0.0, 0.0, 1.0, -0.1392, 0, 0, 0, 1], [0.7500000000000004, 1.0, 0.0, 0.0, -1.6794, 0.0, 1.0, 0.0, -0.817, 0.0, 0.0, 1.0, -0.1403, 0, 0, 0, 1], [0.7600000000000005, 1.0, 0.0, 0.0, -1.6776, 0.0, 1.0, 0.0, -0.8355, 0.0, 0.0, 1.0, -0.1415, 0, 0, 0, 1], [0.7700000000000005, 1.0, 0.0, 0.0, -1.6756, 0.0, 1.0, 0.0, -0.8539, 0.0, 0.0, 1.0, -0.1427, 0, 0, 0, 1], [0.7800000000000005, 1.0, 0.0, 0.0, -1.6735, 0.0, 1.0, 0.0, -0.8723, 0.0, 0.0, 1.0, -0.144, 0, 0, 0, 1], [0.7900000000000005, 1.0, 0.0, 0.0, -1.6713, 0.0, 1.0, 0.0, -0.8906, 0.0, 0.0, 1.0, -0.1454, 0, 0, 0, 1], [0.8000000000000005, 1.0, 0.0, 0.0, -1.6689, 0.0, 1.0, 0.0, -0.9088, 0.0, 0.0, 1.0, -0.1468, 0, 0, 0, 1], [0.8100000000000005, 1.0, 0.0, 0.0, -1.6664, 0.0, 1.0, 0.0, -0.9269, 0.0, 0.0, 1.0, -0.1483, 0, 0, 0, 1], [0.8200000000000005, 1.0, 0.0, 0.0, -1.6637, 0.0, 1.0, 0.0, -0.945, 0.0, 0.0, 1.0, -0.1499, 0, 0, 0, 1], [0.8300000000000005, 1.0, 0.0, 0.0, -1.6608, 0.0, 1.0, 0.0, -0.963, 0.0, 0.0, 1.0, -0.1516, 0, 0, 0, 1], [0.8400000000000005, 1.0, 0.0, 0.0, -1.6578, 0.0, 1.0, 0.0, -0.9809, 0.0, 0.0, 1.0, -0.1533, 0, 0, 0, 1], [0.8500000000000005, 1.0, 0.0, 0.0, -1.6547, 0.0, 1.0, 0.0, -0.9988, 0.0, 0.0, 1.0, -0.155, 0, 0, 0, 1], [0.8600000000000005, 1.0, 0.0, 0.0, -1.6515, 0.0, 1.0, 0.0, -1.0163, 0.0, 0.0, 1.0, -0.1566, 0, 0, 0, 1], [0.8700000000000006, 1.0, 0.0, 0.0, -1.6482, 0.0, 1.0, 0.0, -1.0337, 0.0, 0.0, 1.0, -0.1581, 0, 0, 0, 1], [0.8800000000000006, 1.0, 0.0, 0.0, -1.6448, 0.0, 1.0, 0.0, -1.0508, 0.0, 0.0, 1.0, -0.1594, 0, 0, 0, 1], [0.8900000000000006, 1.0, 0.0, 0.0, -1.6414, 0.0, 1.0, 0.0, -1.0676, 0.0, 0.0, 1.0, -0.1606, 0, 0, 0, 1], [0.9000000000000006, 1.0, 0.0, 0.0, -1.6379, 0.0, 1.0, 0.0, -1.0843, 0.0, 0.0, 1.0, -0.1617, 0, 0, 0, 1], [0.9100000000000006, 1.0, 0.0, 0.0, -1.6343, 0.0, 1.0, 0.0, -1.1006, 0.0, 0.0, 1.0, -0.1627, 0, 0, 0, 1], [0.9200000000000006, 1.0, 0.0, 0.0, -1.6307, 0.0, 1.0, 0.0, -1.1168, 0.0, 0.0, 1.0, -0.1635, 0, 0, 0, 1], [0.9300000000000006, 1.0, 0.0, 0.0, -1.627, 0.0, 1.0, 0.0, -1.1327, 0.0, 0.0, 1.0, -0.1643, 0, 0, 0, 1], [0.9400000000000006, 1.0, 0.0, 0.0, -1.6233, 0.0, 1.0, 0.0, -1.1484, 0.0, 0.0, 1.0, -0.1649, 0, 0, 0, 1], [0.9500000000000006, 1.0, 0.0, 0.0, -1.6195, 0.0, 1.0, 0.0, -1.1638, 0.0, 0.0, 1.0, -0.1654, 0, 0, 0, 1], [0.9600000000000006, 1.0, 0.0, 0.0, -1.6157, 0.0, 1.0, 0.0, -1.179, 0.0, 0.0, 1.0, -0.1658, 0, 0, 0, 1], [0.9700000000000006, 1.0, 0.0, 0.0, -1.6118, 0.0, 1.0, 0.0, -1.194, 0.0, 0.0, 1.0, -0.1662, 0, 0, 0, 1], [0.9800000000000006, 1.0, 0.0, 0.0, -1.6079, 0.0, 1.0, 0.0, -1.2087, 0.0, 0.0, 1.0, -0.1664, 0, 0, 0, 1], [0.9900000000000007, 1.0, 0.0, 0.0, -1.6039, 0.0, 1.0, 0.0, -1.2232, 0.0, 0.0, 1.0, -0.1665, 0, 0, 0, 1], [1.0000000000000007, 1.0, 0.0, 0.0, -1.5999, 0.0, 1.0, 0.0, -1.2375, 0.0, 0.0, 1.0, -0.1666, 0, 0, 0, 1], [1.0100000000000007, 1.0, 0.0, 0.0, -1.5959, 0.0, 1.0, 0.0, -1.2515, 0.0, 0.0, 1.0, -0.1665, 0, 0, 0, 1], [1.0200000000000007, 1.0, 0.0, 0.0, -1.5918, 0.0, 1.0, 0.0, -1.2654, 0.0, 0.0, 1.0, -0.1664, 0, 0, 0, 1], [1.0300000000000007, 1.0, 0.0, 0.0, -1.5877, 0.0, 1.0, 0.0, -1.279, 0.0, 0.0, 1.0, -0.1661, 0, 0, 0, 1], [1.0400000000000007, 1.0, 0.0, 0.0, -1.5836, 0.0, 1.0, 0.0, -1.2924, 0.0, 0.0, 1.0, -0.1658, 0, 0, 0, 1], [1.0500000000000007, 1.0, 0.0, 0.0, -1.5795, 0.0, 1.0, 0.0, -1.3055, 0.0, 0.0, 1.0, -0.1655, 0, 0, 0, 1], [1.0600000000000007, 1.0, 0.0, 0.0, -1.5753, 0.0, 1.0, 0.0, -1.3185, 0.0, 0.0, 1.0, -0.165, 0, 0, 0, 1], [1.0700000000000007, 1.0, 0.0, 0.0, -1.5712, 0.0, 1.0, 0.0, -1.3312, 0.0, 0.0, 1.0, -0.1645, 0, 0, 0, 1], [1.0800000000000007, 1.0, 0.0, 0.0, -1.567, 0.0, 1.0, 0.0, -1.3437, 0.0, 0.0, 1.0, -0.1639, 0, 0, 0, 1], [1.0900000000000007, 1.0, 0.0, 0.0, -1.5628, 0.0, 1.0, 0.0, -1.3561, 0.0, 0.0, 1.0, -0.1632, 0, 0, 0, 1], [1.1000000000000008, 1.0, 0.0, 0.0, -1.5585, 0.0, 1.0, 0.0, -1.3682, 0.0, 0.0, 1.0, -0.1625, 0, 0, 0, 1], [1.1100000000000008, 1.0, 0.0, 0.0, -1.5543, 0.0, 1.0, 0.0, -1.3801, 0.0, 0.0, 1.0, -0.1617, 0, 0, 0, 1], [1.1200000000000008, 1.0, 0.0, 0.0, -1.5501, 0.0, 1.0, 0.0, -1.3917, 0.0, 0.0, 1.0, -0.1608, 0, 0, 0, 1], [1.1300000000000008, 1.0, 0.0, 0.0, -1.5458, 0.0, 1.0, 0.0, -1.4032, 0.0, 0.0, 1.0, -0.1599, 0, 0, 0, 1], [1.1400000000000008, 1.0, 0.0, 0.0, -1.5416, 0.0, 1.0, 0.0, -1.4145, 0.0, 0.0, 1.0, -0.1589, 0, 0, 0, 1], [1.1500000000000008, 1.0, 0.0, 0.0, -1.5373, 0.0, 1.0, 0.0, -1.4256, 0.0, 0.0, 1.0, -0.1579, 0, 0, 0, 1], [1.1600000000000008, 1.0, 0.0, 0.0, -1.5331, 0.0, 1.0, 0.0, -1.4365, 0.0, 0.0, 1.0, -0.1569, 0, 0, 0, 1], [1.1700000000000008, 1.0, 0.0, 0.0, -1.5288, 0.0, 1.0, 0.0, -1.4472, 0.0, 0.0, 1.0, -0.1557, 0, 0, 0, 1], [1.1800000000000008, 1.0, 0.0, 0.0, -1.5246, 0.0, 1.0, 0.0, -1.4577, 0.0, 0.0, 1.0, -0.1546, 0, 0, 0, 1], [1.1900000000000008, 1.0, 0.0, 0.0, -1.5203, 0.0, 1.0, 0.0, -1.468, 0.0, 0.0, 1.0, -0.1533, 0, 0, 0, 1], [1.2000000000000008, 1.0, 0.0, 0.0, -1.5161, 0.0, 1.0, 0.0, -1.4781, 0.0, 0.0, 1.0, -0.1521, 0, 0, 0, 1], [1.2100000000000009, 1.0, 0.0, 0.0, -1.5119, 0.0, 1.0, 0.0, -1.4881, 0.0, 0.0, 1.0, -0.1508, 0, 0, 0, 1], [1.2200000000000009, 1.0, 0.0, 0.0, -1.5076, 0.0, 1.0, 0.0, -1.4978, 0.0, 0.0, 1.0, -0.1494, 0, 0, 0, 1], [1.2300000000000009, 1.0, 0.0, 0.0, -1.5035, 0.0, 1.0, 0.0, -1.5074, 0.0, 0.0, 1.0, -0.1481, 0, 0, 0, 1], [1.2400000000000009, 1.0, 0.0, 0.0, -1.4994, 0.0, 1.0, 0.0, -1.5168, 0.0, 0.0, 1.0, -0.1468, 0, 0, 0, 1], [1.2500000000000009, 1.0, 0.0, 0.0, -1.4954, 0.0, 1.0, 0.0, -1.526, 0.0, 0.0, 1.0, -0.1456, 0, 0, 0, 1], [1.260000000000001, 1.0, 0.0, 0.0, -1.4915, 0.0, 1.0, 0.0, -1.535, 0.0, 0.0, 1.0, -0.1443, 0, 0, 0, 1], [1.270000000000001, 1.0, 0.0, 0.0, -1.4877, 0.0, 1.0, 0.0, -1.5438, 0.0, 0.0, 1.0, -0.1431, 0, 0, 0, 1], [1.280000000000001, 1.0, 0.0, 0.0, -1.4839, 0.0, 1.0, 0.0, -1.5525, 0.0, 0.0, 1.0, -0.1419, 0, 0, 0, 1], [1.290000000000001, 1.0, 0.0, 0.0, -1.4802, 0.0, 1.0, 0.0, -1.5609, 0.0, 0.0, 1.0, -0.1407, 0, 0, 0, 1], [1.300000000000001, 1.0, 0.0, 0.0, -1.4766, 0.0, 1.0, 0.0, -1.5692, 0.0, 0.0, 1.0, -0.1396, 0, 0, 0, 1], [1.310000000000001, 1.0, 0.0, 0.0, -1.4731, 0.0, 1.0, 0.0, -1.5774, 0.0, 0.0, 1.0, -0.1385, 0, 0, 0, 1], [1.320000000000001, 1.0, 0.0, 0.0, -1.4696, 0.0, 1.0, 0.0, -1.5854, 0.0, 0.0, 1.0, -0.1373, 0, 0, 0, 1], [1.330000000000001, 1.0, 0.0, 0.0, -1.4663, 0.0, 1.0, 0.0, -1.5932, 0.0, 0.0, 1.0, -0.1363, 0, 0, 0, 1], [1.340000000000001, 1.0, 0.0, 0.0, -1.4629, 0.0, 1.0, 0.0, -1.6008, 0.0, 0.0, 1.0, -0.1352, 0, 0, 0, 1], [1.350000000000001, 1.0, 0.0, 0.0, -1.4597, 0.0, 1.0, 0.0, -1.6084, 0.0, 0.0, 1.0, -0.1342, 0, 0, 0, 1], [1.360000000000001, 1.0, 0.0, 0.0, -1.4565, 0.0, 1.0, 0.0, -1.6157, 0.0, 0.0, 1.0, -0.1332, 0, 0, 0, 1], [1.370000000000001, 1.0, 0.0, 0.0, -1.4534, 0.0, 1.0, 0.0, -1.6229, 0.0, 0.0, 1.0, -0.1322, 0, 0, 0, 1], [1.380000000000001, 1.0, 0.0, 0.0, -1.4503, 0.0, 1.0, 0.0, -1.63, 0.0, 0.0, 1.0, -0.1312, 0, 0, 0, 1], [1.390000000000001, 1.0, 0.0, 0.0, -1.4473, 0.0, 1.0, 0.0, -1.6369, 0.0, 0.0, 1.0, -0.1302, 0, 0, 0, 1], [1.400000000000001, 1.0, 0.0, 0.0, -1.4443, 0.0, 1.0, 0.0, -1.6437, 0.0, 0.0, 1.0, -0.1293, 0, 0, 0, 1], [1.410000000000001, 1.0, 0.0, 0.0, -1.4414, 0.0, 1.0, 0.0, -1.6504, 0.0, 0.0, 1.0, -0.1284, 0, 0, 0, 1], [1.420000000000001, 1.0, 0.0, 0.0, -1.4386, 0.0, 1.0, 0.0, -1.6569, 0.0, 0.0, 1.0, -0.1275, 0, 0, 0, 1], [1.430000000000001, 1.0, 0.0, 0.0, -1.4358, 0.0, 1.0, 0.0, -1.6633, 0.0, 0.0, 1.0, -0.1266, 0, 0, 0, 1], [1.440000000000001, 1.0, 0.0, 0.0, -1.4331, 0.0, 1.0, 0.0, -1.6695, 0.0, 0.0, 1.0, -0.1257, 0, 0, 0, 1], [1.450000000000001, 1.0, 0.0, 0.0, -1.4305, 0.0, 1.0, 0.0, -1.6757, 0.0, 0.0, 1.0, -0.1249, 0, 0, 0, 1], [1.460000000000001, 1.0, 0.0, 0.0, -1.4279, 0.0, 1.0, 0.0, -1.6817, 0.0, 0.0, 1.0, -0.124, 0, 0, 0, 1], [1.470000000000001, 1.0, 0.0, 0.0, -1.4253, 0.0, 1.0, 0.0, -1.6876, 0.0, 0.0, 1.0, -0.1232, 0, 0, 0, 1], [1.480000000000001, 1.0, 0.0, 0.0, -1.4228, 0.0, 1.0, 0.0, -1.6933, 0.0, 0.0, 1.0, -0.1224, 0, 0, 0, 1], [1.490000000000001, 1.0, 0.0, 0.0, -1.4203, 0.0, 1.0, 0.0, -1.699, 0.0, 0.0, 1.0, -0.1216, 0, 0, 0, 1], [1.500000000000001, 1.0, 0.0, 0.0, -1.4179, 0.0, 1.0, 0.0, -1.7045, 0.0, 0.0, 1.0, -0.1209, 0, 0, 0, 1], [1.5100000000000011, 1.0, 0.0, 0.0, -1.4156, 0.0, 1.0, 0.0, -1.71, 0.0, 0.0, 1.0, -0.1201, 0, 0, 0, 1], [1.5200000000000011, 1.0, 0.0, 0.0, -1.4133, 0.0, 1.0, 0.0, -1.7153, 0.0, 0.0, 1.0, -0.1194, 0, 0, 0, 1], [1.5300000000000011, 1.0, 0.0, 0.0, -1.411, 0.0, 1.0, 0.0, -1.7205, 0.0, 0.0, 1.0, -0.1187, 0, 0, 0, 1], [1.5400000000000011, 1.0, 0.0, 0.0, -1.4088, 0.0, 1.0, 0.0, -1.7256, 0.0, 0.0, 1.0, -0.118, 0, 0, 0, 1], [1.5500000000000012, 1.0, 0.0, 0.0, -1.4066, 0.0, 1.0, 0.0, -1.7307, 0.0, 0.0, 1.0, -0.1173, 0, 0, 0, 1], [1.5600000000000012, 1.0, 0.0, 0.0, -1.4045, 0.0, 1.0, 0.0, -1.7356, 0.0, 0.0, 1.0, -0.1166, 0, 0, 0, 1], [1.5700000000000012, 1.0, 0.0, 0.0, -1.4024, 0.0, 1.0, 0.0, -1.7404, 0.0, 0.0, 1.0, -0.1159, 0, 0, 0, 1], [1.5800000000000012, 1.0, 0.0, 0.0, -1.4003, 0.0, 1.0, 0.0, -1.7451, 0.0, 0.0, 1.0, -0.1153, 0, 0, 0, 1], [1.5900000000000012, 1.0, 0.0, 0.0, -1.3983, 0.0, 1.0, 0.0, -1.7497, 0.0, 0.0, 1.0, -0.1146, 0, 0, 0, 1], [1.6000000000000012, 1.0, 0.0, 0.0, -1.3964, 0.0, 1.0, 0.0, -1.7543, 0.0, 0.0, 1.0, -0.114, 0, 0, 0, 1], [1.6100000000000012, 1.0, 0.0, 0.0, -1.3944, 0.0, 1.0, 0.0, -1.7587, 0.0, 0.0, 1.0, -0.1134, 0, 0, 0, 1], [1.6200000000000012, 1.0, 0.0, 0.0, -1.3925, 0.0, 1.0, 0.0, -1.7631, 0.0, 0.0, 1.0, -0.1128, 0, 0, 0, 1], [1.6300000000000012, 1.0, 0.0, 0.0, -1.3907, 0.0, 1.0, 0.0, -1.7673, 0.0, 0.0, 1.0, -0.1122, 0, 0, 0, 1], [1.6400000000000012, 1.0, 0.0, 0.0, -1.3889, 0.0, 1.0, 0.0, -1.7715, 0.0, 0.0, 1.0, -0.1116, 0, 0, 0, 1], [1.6500000000000012, 1.0, 0.0, 0.0, -1.3871, 0.0, 1.0, 0.0, -1.7756, 0.0, 0.0, 1.0, -0.1111, 0, 0, 0, 1], [1.6600000000000013, 1.0, 0.0, 0.0, -1.3854, 0.0, 1.0, 0.0, -1.7796, 0.0, 0.0, 1.0, -0.1105, 0, 0, 0, 1], [1.6700000000000013, 1.0, 0.0, 0.0, -1.3837, 0.0, 1.0, 0.0, -1.7835, 0.0, 0.0, 1.0, -0.11, 0, 0, 0, 1], [1.6800000000000013, 1.0, 0.0, 0.0, -1.382, 0.0, 1.0, 0.0, -1.7874, 0.0, 0.0, 1.0, -0.1094, 0, 0, 0, 1], [1.6900000000000013, 1.0, 0.0, 0.0, -1.3803, 0.0, 1.0, 0.0, -1.7912, 0.0, 0.0, 1.0, -0.1089, 0, 0, 0, 1], [1.7000000000000013, 1.0, 0.0, 0.0, -1.3787, 0.0, 1.0, 0.0, -1.7949, 0.0, 0.0, 1.0, -0.1084, 0, 0, 0, 1], [1.7100000000000013, 1.0, 0.0, 0.0, -1.3772, 0.0, 1.0, 0.0, -1.7985, 0.0, 0.0, 1.0, -0.1079, 0, 0, 0, 1], [1.7200000000000013, 1.0, 0.0, 0.0, -1.3756, 0.0, 1.0, 0.0, -1.8021, 0.0, 0.0, 1.0, -0.1074, 0, 0, 0, 1], [1.7300000000000013, 1.0, 0.0, 0.0, -1.3741, 0.0, 1.0, 0.0, -1.8055, 0.0, 0.0, 1.0, -0.1069, 0, 0, 0, 1], [1.7400000000000013, 1.0, 0.0, 0.0, -1.3726, 0.0, 1.0, 0.0, -1.809, 0.0, 0.0, 1.0, -0.1064, 0, 0, 0, 1], [1.7500000000000013, 1.0, 0.0, 0.0, -1.3712, 0.0, 1.0, 0.0, -1.8123, 0.0, 0.0, 1.0, -0.106, 0, 0, 0, 1], [1.7600000000000013, 1.0, 0.0, 0.0, -1.3698, 0.0, 1.0, 0.0, -1.8156, 0.0, 0.0, 1.0, -0.1055, 0, 0, 0, 1], [1.7700000000000014, 1.0, 0.0, 0.0, -1.3684, 0.0, 1.0, 0.0, -1.8188, 0.0, 0.0, 1.0, -0.1051, 0, 0, 0, 1], [1.7800000000000014, 1.0, 0.0, 0.0, -1.367, 0.0, 1.0, 0.0, -1.822, 0.0, 0.0, 1.0, -0.1047, 0, 0, 0, 1], [1.7900000000000014, 1.0, 0.0, 0.0, -1.3657, 0.0, 1.0, 0.0, -1.825, 0.0, 0.0, 1.0, -0.1042, 0, 0, 0, 1], [1.8000000000000014, 1.0, 0.0, 0.0, -1.3643, 0.0, 1.0, 0.0, -1.8281, 0.0, 0.0, 1.0, -0.1038, 0, 0, 0, 1], [1.8100000000000014, 1.0, 0.0, 0.0, -1.3631, 0.0, 1.0, 0.0, -1.831, 0.0, 0.0, 1.0, -0.1034, 0, 0, 0, 1], [1.8200000000000014, 1.0, 0.0, 0.0, -1.3618, 0.0, 1.0, 0.0, -1.8339, 0.0, 0.0, 1.0, -0.103, 0, 0, 0, 1], [1.8300000000000014, 1.0, 0.0, 0.0, -1.3606, 0.0, 1.0, 0.0, -1.8368, 0.0, 0.0, 1.0, -0.1026, 0, 0, 0, 1], [1.8400000000000014, 1.0, 0.0, 0.0, -1.3593, 0.0, 1.0, 0.0, -1.8396, 0.0, 0.0, 1.0, -0.1022, 0, 0, 0, 1], [1.8500000000000014, 1.0, 0.0, 0.0, -1.3582, 0.0, 1.0, 0.0, -1.8423, 0.0, 0.0, 1.0, -0.1018, 0, 0, 0, 1], [1.8600000000000014, 1.0, 0.0, 0.0, -1.357, 0.0, 1.0, 0.0, -1.845, 0.0, 0.0, 1.0, -0.1015, 0, 0, 0, 1], [1.8700000000000014, 1.0, 0.0, 0.0, -1.3559, 0.0, 1.0, 0.0, -1.8476, 0.0, 0.0, 1.0, -0.1011, 0, 0, 0, 1], [1.8800000000000014, 1.0, 0.0, 0.0, -1.3547, 0.0, 1.0, 0.0, -1.8502, 0.0, 0.0, 1.0, -0.1008, 0, 0, 0, 1], [1.8900000000000015, 1.0, 0.0, 0.0, -1.3536, 0.0, 1.0, 0.0, -1.8527, 0.0, 0.0, 1.0, -0.1004, 0, 0, 0, 1], [1.9000000000000015, 1.0, 0.0, 0.0, -1.3526, 0.0, 1.0, 0.0, -1.8552, 0.0, 0.0, 1.0, -0.1001, 0, 0, 0, 1], [1.9100000000000015, 1.0, 0.0, 0.0, -1.3515, 0.0, 1.0, 0.0, -1.8576, 0.0, 0.0, 1.0, -0.0997, 0, 0, 0, 1], [1.9200000000000015, 1.0, 0.0, 0.0, -1.3505, 0.0, 1.0, 0.0, -1.86, 0.0, 0.0, 1.0, -0.0994, 0, 0, 0, 1], [1.9300000000000015, 1.0, 0.0, 0.0, -1.3495, 0.0, 1.0, 0.0, -1.8623, 0.0, 0.0, 1.0, -0.0991, 0, 0, 0, 1], [1.9400000000000015, 1.0, 0.0, 0.0, -1.3485, 0.0, 1.0, 0.0, -1.8646, 0.0, 0.0, 1.0, -0.0988, 0, 0, 0, 1], [1.9500000000000015, 1.0, 0.0, 0.0, -1.3475, 0.0, 1.0, 0.0, -1.8668, 0.0, 0.0, 1.0, -0.0985, 0, 0, 0, 1], [1.9600000000000015, 1.0, 0.0, 0.0, -1.3466, 0.0, 1.0, 0.0, -1.869, 0.0, 0.0, 1.0, -0.0982, 0, 0, 0, 1], [1.9700000000000015, 1.0, 0.0, 0.0, -1.3456, 0.0, 1.0, 0.0, -1.8712, 0.0, 0.0, 1.0, -0.0979, 0, 0, 0, 1], [1.9800000000000015, 1.0, 0.0, 0.0, -1.3447, 0.0, 1.0, 0.0, -1.8733, 0.0, 0.0, 1.0, -0.0976, 0, 0, 0, 1], [1.9900000000000015, 1.0, 0.0, 0.0, -1.3438, 0.0, 1.0, 0.0, -1.8753, 0.0, 0.0, 1.0, -0.0973, 0, 0, 0, 1], [2.0000000000000013, 1.0, 0.0, 0.0, -1.343, 0.0, 1.0, 0.0, -1.8773, 0.0, 0.0, 1.0, -0.097, 0, 0, 0, 1], [2.010000000000001, 1.0, 0.0, 0.0, -1.3421, 0.0, 1.0, 0.0, -1.8793, 0.0, 0.0, 1.0, -0.0967, 0, 0, 0, 1], [2.020000000000001, 1.0, 0.0, 0.0, -1.3413, 0.0, 1.0, 0.0, -1.8813, 0.0, 0.0, 1.0, -0.0965, 0, 0, 0, 1], [2.0300000000000007, 1.0, 0.0, 0.0, -1.3404, 0.0, 1.0, 0.0, -1.8832, 0.0, 0.0, 1.0, -0.0962, 0, 0, 0, 1], [2.0400000000000005, 1.0, 0.0, 0.0, -1.3396, 0.0, 1.0, 0.0, -1.885, 0.0, 0.0, 1.0, -0.0959, 0, 0, 0, 1], [2.0500000000000003, 1.0, 0.0, 0.0, -1.3388, 0.0, 1.0, 0.0, -1.8868, 0.0, 0.0, 1.0, -0.0957, 0, 0, 0, 1], [2.06, 1.0, 0.0, 0.0, -1.3381, 0.0, 1.0, 0.0, -1.8886, 0.0, 0.0, 1.0, -0.0954, 0, 0, 0, 1], [2.07, 1.0, 0.0, 0.0, -1.3373, 0.0, 1.0, 0.0, -1.8904, 0.0, 0.0, 1.0, -0.0952, 0, 0, 0, 1], [2.0799999999999996, 1.0, 0.0, 0.0, -1.3365, 0.0, 1.0, 0.0, -1.8921, 0.0, 0.0, 1.0, -0.095, 0, 0, 0, 1], [2.0899999999999994, 1.0, 0.0, 0.0, -1.3358, 0.0, 1.0, 0.0, -1.8938, 0.0, 0.0, 1.0, -0.0947, 0, 0, 0, 1], [2.099999999999999, 1.0, 0.0, 0.0, -1.3351, 0.0, 1.0, 0.0, -1.8954, 0.0, 0.0, 1.0, -0.0945, 0, 0, 0, 1], [2.109999999999999, 1.0, 0.0, 0.0, -1.3344, 0.0, 1.0, 0.0, -1.8971, 0.0, 0.0, 1.0, -0.0943, 0, 0, 0, 1], [2.1199999999999988, 1.0, 0.0, 0.0, -1.3337, 0.0, 1.0, 0.0, -1.8986, 0.0, 0.0, 1.0, -0.0941, 0, 0, 0, 1], [2.1299999999999986, 1.0, 0.0, 0.0, -1.333, 0.0, 1.0, 0.0, -1.9002, 0.0, 0.0, 1.0, -0.0938, 0, 0, 0, 1], [2.1399999999999983, 1.0, 0.0, 0.0, -1.3324, 0.0, 1.0, 0.0, -1.9017, 0.0, 0.0, 1.0, -0.0936, 0, 0, 0, 1], [2.149999999999998, 1.0, 0.0, 0.0, -1.3317, 0.0, 1.0, 0.0, -1.9032, 0.0, 0.0, 1.0, -0.0934, 0, 0, 0, 1], [2.159999999999998, 1.0, 0.0, 0.0, -1.3311, 0.0, 1.0, 0.0, -1.9047, 0.0, 0.0, 1.0, -0.0932, 0, 0, 0, 1], [2.1699999999999977, 1.0, 0.0, 0.0, -1.3305, 0.0, 1.0, 0.0, -1.9061, 0.0, 0.0, 1.0, -0.093, 0, 0, 0, 1], [2.1799999999999975, 1.0, 0.0, 0.0, -1.3299, 0.0, 1.0, 0.0, -1.9075, 0.0, 0.0, 1.0, -0.0928, 0, 0, 0, 1], [2.1899999999999973, 1.0, 0.0, 0.0, -1.3293, 0.0, 1.0, 0.0, -1.9089, 0.0, 0.0, 1.0, -0.0926, 0, 0, 0, 1], [2.199999999999997, 1.0, 0.0, 0.0, -1.3287, 0.0, 1.0, 0.0, -1.9102, 0.0, 0.0, 1.0, -0.0925, 0, 0, 0, 1], [2.209999999999997, 1.0, 0.0, 0.0, -1.3281, 0.0, 1.0, 0.0, -1.9116, 0.0, 0.0, 1.0, -0.0923, 0, 0, 0, 1], [2.2199999999999966, 1.0, 0.0, 0.0, -1.3275, 0.0, 1.0, 0.0, -1.9128, 0.0, 0.0, 1.0, -0.0921, 0, 0, 0, 1], [2.2299999999999964, 1.0, 0.0, 0.0, -1.327, 0.0, 1.0, 0.0, -1.9141, 0.0, 0.0, 1.0, -0.0919, 0, 0, 0, 1], [2.239999999999996, 1.0, 0.0, 0.0, -1.3265, 0.0, 1.0, 0.0, -1.9154, 0.0, 0.0, 1.0, -0.0917, 0, 0, 0, 1], [2.249999999999996, 1.0, 0.0, 0.0, -1.3259, 0.0, 1.0, 0.0, -1.9166, 0.0, 0.0, 1.0, -0.0916, 0, 0, 0, 1], [2.259999999999996, 1.0, 0.0, 0.0, -1.3254, 0.0, 1.0, 0.0, -1.9178, 0.0, 0.0, 1.0, -0.0914, 0, 0, 0, 1], [2.2699999999999956, 1.0, 0.0, 0.0, -1.3249, 0.0, 1.0, 0.0, -1.9189, 0.0, 0.0, 1.0, -0.0912, 0, 0, 0, 1], [2.2799999999999954, 1.0, 0.0, 0.0, -1.3244, 0.0, 1.0, 0.0, -1.9201, 0.0, 0.0, 1.0, -0.0911, 0, 0, 0, 1], [2.289999999999995, 1.0, 0.0, 0.0, -1.3239, 0.0, 1.0, 0.0, -1.9212, 0.0, 0.0, 1.0, -0.0909, 0, 0, 0, 1], [2.299999999999995, 1.0, 0.0, 0.0, -1.3234, 0.0, 1.0, 0.0, -1.9223, 0.0, 0.0, 1.0, -0.0908, 0, 0, 0, 1], [2.3099999999999947, 1.0, 0.0, 0.0, -1.323, 0.0, 1.0, 0.0, -1.9234, 0.0, 0.0, 1.0, -0.0906, 0, 0, 0, 1], [2.3199999999999945, 1.0, 0.0, 0.0, -1.3225, 0.0, 1.0, 0.0, -1.9245, 0.0, 0.0, 1.0, -0.0905, 0, 0, 0, 1], [2.3299999999999943, 1.0, 0.0, 0.0, -1.3221, 0.0, 1.0, 0.0, -1.9255, 0.0, 0.0, 1.0, -0.0903, 0, 0, 0, 1], [2.339999999999994, 1.0, 0.0, 0.0, -1.3216, 0.0, 1.0, 0.0, -1.9265, 0.0, 0.0, 1.0, -0.0902, 0, 0, 0, 1], [2.349999999999994, 1.0, 0.0, 0.0, -1.3212, 0.0, 1.0, 0.0, -1.9275, 0.0, 0.0, 1.0, -0.0901, 0, 0, 0, 1], [2.3599999999999937, 1.0, 0.0, 0.0, -1.3208, 0.0, 1.0, 0.0, -1.9285, 0.0, 0.0, 1.0, -0.0899, 0, 0, 0, 1], [2.3699999999999934, 1.0, 0.0, 0.0, -1.3204, 0.0, 1.0, 0.0, -1.9294, 0.0, 0.0, 1.0, -0.0898, 0, 0, 0, 1], [2.3799999999999932, 1.0, 0.0, 0.0, -1.3199, 0.0, 1.0, 0.0, -1.9304, 0.0, 0.0, 1.0, -0.0897, 0, 0, 0, 1], [2.389999999999993, 1.0, 0.0, 0.0, -1.3195, 0.0, 1.0, 0.0, -1.9313, 0.0, 0.0, 1.0, -0.0895, 0, 0, 0, 1], [2.399999999999993, 1.0, 0.0, 0.0, -1.3192, 0.0, 1.0, 0.0, -1.9322, 0.0, 0.0, 1.0, -0.0894, 0, 0, 0, 1], [2.4099999999999926, 1.0, 0.0, 0.0, -1.3188, 0.0, 1.0, 0.0, -1.9331, 0.0, 0.0, 1.0, -0.0893, 0, 0, 0, 1], [2.4199999999999924, 1.0, 0.0, 0.0, -1.3184, 0.0, 1.0, 0.0, -1.9339, 0.0, 0.0, 1.0, -0.0892, 0, 0, 0, 1], [2.429999999999992, 1.0, 0.0, 0.0, -1.318, 0.0, 1.0, 0.0, -1.9348, 0.0, 0.0, 1.0, -0.0891, 0, 0, 0, 1], [2.439999999999992, 1.0, 0.0, 0.0, -1.3177, 0.0, 1.0, 0.0, -1.9356, 0.0, 0.0, 1.0, -0.0889, 0, 0, 0, 1], [2.4499999999999917, 1.0, 0.0, 0.0, -1.3173, 0.0, 1.0, 0.0, -1.9364, 0.0, 0.0, 1.0, -0.0888, 0, 0, 0, 1], [2.4599999999999915, 1.0, 0.0, 0.0, -1.317, 0.0, 1.0, 0.0, -1.9372, 0.0, 0.0, 1.0, -0.0887, 0, 0, 0, 1], [2.4699999999999913, 1.0, 0.0, 0.0, -1.3166, 0.0, 1.0, 0.0, -1.938, 0.0, 0.0, 1.0, -0.0886, 0, 0, 0, 1], [2.479999999999991, 1.0, 0.0, 0.0, -1.3163, 0.0, 1.0, 0.0, -1.9388, 0.0, 0.0, 1.0, -0.0885, 0, 0, 0, 1], [2.489999999999991, 1.0, 0.0, 0.0, -1.316, 0.0, 1.0, 0.0, -1.9395, 0.0, 0.0, 1.0, -0.0884, 0, 0, 0, 1], [2.4999999999999907, 1.0, 0.0, 0.0, -1.3157, 0.0, 1.0, 0.0, -1.9403, 0.0, 0.0, 1.0, -0.0883, 0, 0, 0, 1], [2.5099999999999905, 1.0, 0.0, 0.0, -1.3153, 0.0, 1.0, 0.0, -1.941, 0.0, 0.0, 1.0, -0.0882, 0, 0, 0, 1], [2.5199999999999902, 1.0, 0.0, 0.0, -1.315, 0.0, 1.0, 0.0, -1.9417, 0.0, 0.0, 1.0, -0.0881, 0, 0, 0, 1], [2.52999999999999, 1.0, 0.0, 0.0, -1.3147, 0.0, 1.0, 0.0, -1.9424, 0.0, 0.0, 1.0, -0.088, 0, 0, 0, 1], [2.53999999999999, 1.0, 0.0, 0.0, -1.3144, 0.0, 1.0, 0.0, -1.9431, 0.0, 0.0, 1.0, -0.0879, 0, 0, 0, 1], [2.5499999999999896, 1.0, 0.0, 0.0, -1.3142, 0.0, 1.0, 0.0, -1.9437, 0.0, 0.0, 1.0, -0.0878, 0, 0, 0, 1], [2.5599999999999894, 1.0, 0.0, 0.0, -1.3139, 0.0, 1.0, 0.0, -1.9444, 0.0, 0.0, 1.0, -0.0877, 0, 0, 0, 1], [2.569999999999989, 1.0, 0.0, 0.0, -1.3136, 0.0, 1.0, 0.0, -1.945, 0.0, 0.0, 1.0, -0.0876, 0, 0, 0, 1], [2.579999999999989, 1.0, 0.0, 0.0, -1.3133, 0.0, 1.0, 0.0, -1.9456, 0.0, 0.0, 1.0, -0.0876, 0, 0, 0, 1], [2.5899999999999888, 1.0, 0.0, 0.0, -1.3131, 0.0, 1.0, 0.0, -1.9463, 0.0, 0.0, 1.0, -0.0875, 0, 0, 0, 1], [2.5999999999999885, 1.0, 0.0, 0.0, -1.3128, 0.0, 1.0, 0.0, -1.9469, 0.0, 0.0, 1.0, -0.0874, 0, 0, 0, 1], [2.6099999999999883, 1.0, 0.0, 0.0, -1.3125, 0.0, 1.0, 0.0, -1.9474, 0.0, 0.0, 1.0, -0.0873, 0, 0, 0, 1], [2.619999999999988, 1.0, 0.0, 0.0, -1.3123, 0.0, 1.0, 0.0, -1.948, 0.0, 0.0, 1.0, -0.0872, 0, 0, 0, 1], [2.629999999999988, 1.0, 0.0, 0.0, -1.312, 0.0, 1.0, 0.0, -1.9486, 0.0, 0.0, 1.0, -0.0872, 0, 0, 0, 1], [2.6399999999999877, 1.0, 0.0, 0.0, -1.3118, 0.0, 1.0, 0.0, -1.9491, 0.0, 0.0, 1.0, -0.0871, 0, 0, 0, 1], [2.6499999999999875, 1.0, 0.0, 0.0, -1.3116, 0.0, 1.0, 0.0, -1.9497, 0.0, 0.0, 1.0, -0.087, 0, 0, 0, 1], [2.6599999999999873, 1.0, 0.0, 0.0, -1.3113, 0.0, 1.0, 0.0, -1.9502, 0.0, 0.0, 1.0, -0.0869, 0, 0, 0, 1], [2.669999999999987, 1.0, 0.0, 0.0, -1.3111, 0.0, 1.0, 0.0, -1.9507, 0.0, 0.0, 1.0, -0.0869, 0, 0, 0, 1], [2.679999999999987, 1.0, 0.0, 0.0, -1.3109, 0.0, 1.0, 0.0, -1.9512, 0.0, 0.0, 1.0, -0.0868, 0, 0, 0, 1], [2.6899999999999866, 1.0, 0.0, 0.0, -1.3107, 0.0, 1.0, 0.0, -1.9518, 0.0, 0.0, 1.0, -0.0867, 0, 0, 0, 1], [2.6999999999999864, 1.0, 0.0, 0.0, -1.3105, 0.0, 1.0, 0.0, -1.9522, 0.0, 0.0, 1.0, -0.0866, 0, 0, 0, 1], [2.709999999999986, 1.0, 0.0, 0.0, -1.3102, 0.0, 1.0, 0.0, -1.9527, 0.0, 0.0, 1.0, -0.0866, 0, 0, 0, 1], [2.719999999999986, 1.0, 0.0, 0.0, -1.31, 0.0, 1.0, 0.0, -1.9532, 0.0, 0.0, 1.0, -0.0865, 0, 0, 0, 1], [2.7299999999999858, 1.0, 0.0, 0.0, -1.3098, 0.0, 1.0, 0.0, -1.9537, 0.0, 0.0, 1.0, -0.0865, 0, 0, 0, 1], [2.7399999999999856, 1.0, 0.0, 0.0, -1.3096, 0.0, 1.0, 0.0, -1.9541, 0.0, 0.0, 1.0, -0.0864, 0, 0, 0, 1], [2.7499999999999853, 1.0, 0.0, 0.0, -1.3095, 0.0, 1.0, 0.0, -1.9546, 0.0, 0.0, 1.0, -0.0863, 0, 0, 0, 1], [2.759999999999985, 1.0, 0.0, 0.0, -1.3093, 0.0, 1.0, 0.0, -1.955, 0.0, 0.0, 1.0, -0.0863, 0, 0, 0, 1], [2.769999999999985, 1.0, 0.0, 0.0, -1.3091, 0.0, 1.0, 0.0, -1.9554, 0.0, 0.0, 1.0, -0.0862, 0, 0, 0, 1], [2.7799999999999847, 1.0, 0.0, 0.0, -1.3089, 0.0, 1.0, 0.0, -1.9558, 0.0, 0.0, 1.0, -0.0862, 0, 0, 0, 1], [2.7899999999999845, 1.0, 0.0, 0.0, -1.3087, 0.0, 1.0, 0.0, -1.9562, 0.0, 0.0, 1.0, -0.0861, 0, 0, 0, 1], [2.7999999999999843, 1.0, 0.0, 0.0, -1.3085, 0.0, 1.0, 0.0, -1.9566, 0.0, 0.0, 1.0, -0.086, 0, 0, 0, 1], [2.809999999999984, 1.0, 0.0, 0.0, -1.3084, 0.0, 1.0, 0.0, -1.957, 0.0, 0.0, 1.0, -0.086, 0, 0, 0, 1], [2.819999999999984, 1.0, 0.0, 0.0, -1.3082, 0.0, 1.0, 0.0, -1.9574, 0.0, 0.0, 1.0, -0.0859, 0, 0, 0, 1], [2.8299999999999836, 1.0, 0.0, 0.0, -1.308, 0.0, 1.0, 0.0, -1.9578, 0.0, 0.0, 1.0, -0.0859, 0, 0, 0, 1], [2.8399999999999834, 1.0, 0.0, 0.0, -1.3079, 0.0, 1.0, 0.0, -1.9582, 0.0, 0.0, 1.0, -0.0858, 0, 0, 0, 1], [2.849999999999983, 1.0, 0.0, 0.0, -1.3077, 0.0, 1.0, 0.0, -1.9585, 0.0, 0.0, 1.0, -0.0858, 0, 0, 0, 1], [2.859999999999983, 1.0, 0.0, 0.0, -1.3076, 0.0, 1.0, 0.0, -1.9589, 0.0, 0.0, 1.0, -0.0857, 0, 0, 0, 1], [2.869999999999983, 1.0, 0.0, 0.0, -1.3074, 0.0, 1.0, 0.0, -1.9592, 0.0, 0.0, 1.0, -0.0857, 0, 0, 0, 1], [2.8799999999999826, 1.0, 0.0, 0.0, -1.3073, 0.0, 1.0, 0.0, -1.9596, 0.0, 0.0, 1.0, -0.0856, 0, 0, 0, 1], [2.8899999999999824, 1.0, 0.0, 0.0, -1.3071, 0.0, 1.0, 0.0, -1.9599, 0.0, 0.0, 1.0, -0.0856, 0, 0, 0, 1], [2.899999999999982, 1.0, 0.0, 0.0, -1.307, 0.0, 1.0, 0.0, -1.9602, 0.0, 0.0, 1.0, -0.0855, 0, 0, 0, 1], [2.909999999999982, 1.0, 0.0, 0.0, -1.3068, 0.0, 1.0, 0.0, -1.9606, 0.0, 0.0, 1.0, -0.0855, 0, 0, 0, 1], [2.9199999999999817, 1.0, 0.0, 0.0, -1.3067, 0.0, 1.0, 0.0, -1.9609, 0.0, 0.0, 1.0, -0.0855, 0, 0, 0, 1], [2.9299999999999815, 1.0, 0.0, 0.0, -1.3066, 0.0, 1.0, 0.0, -1.9612, 0.0, 0.0, 1.0, -0.0854, 0, 0, 0, 1], [2.9399999999999813, 1.0, 0.0, 0.0, -1.3064, 0.0, 1.0, 0.0, -1.9615, 0.0, 0.0, 1.0, -0.0854, 0, 0, 0, 1], [2.949999999999981, 1.0, 0.0, 0.0, -1.3063, 0.0, 1.0, 0.0, -1.9618, 0.0, 0.0, 1.0, -0.0853, 0, 0, 0, 1], [2.959999999999981, 1.0, 0.0, 0.0, -1.3062, 0.0, 1.0, 0.0, -1.9621, 0.0, 0.0, 1.0, -0.0853, 0, 0, 0, 1], [2.9699999999999807, 1.0, 0.0, 0.0, -1.3061, 0.0, 1.0, 0.0, -1.9624, 0.0, 0.0, 1.0, -0.0853, 0, 0, 0, 1], [2.9799999999999804, 1.0, 0.0, 0.0, -1.3059, 0.0, 1.0, 0.0, -1.9626, 0.0, 0.0, 1.0, -0.0852, 0, 0, 0, 1], [2.9899999999999802, 1.0, 0.0, 0.0, -1.3058, 0.0, 1.0, 0.0, -1.9629, 0.0, 0.0, 1.0, -0.0852, 0, 0, 0, 1], [2.99999999999998, 1.0, 0.0, 0.0, -1.3057, 0.0, 1.0, 0.0, -1.9632, 0.0, 0.0, 1.0, -0.0851, 0, 0, 0, 1], [3.00999999999998, 1.0, 0.0, 0.0, -1.3056, 0.0, 1.0, 0.0, -1.9634, 0.0, 0.0, 1.0, -0.0851, 0, 0, 0, 1], [3.0199999999999796, 1.0, 0.0, 0.0, -1.3055, 0.0, 1.0, 0.0, -1.9637, 0.0, 0.0, 1.0, -0.0851, 0, 0, 0, 1], [3.0299999999999794, 1.0, 0.0, 0.0, -1.3054, 0.0, 1.0, 0.0, -1.9639, 0.0, 0.0, 1.0, -0.085, 0, 0, 0, 1], [3.039999999999979, 1.0, 0.0, 0.0, -1.3053, 0.0, 1.0, 0.0, -1.9642, 0.0, 0.0, 1.0, -0.085, 0, 0, 0, 1], [3.049999999999979, 1.0, 0.0, 0.0, -1.3052, 0.0, 1.0, 0.0, -1.9644, 0.0, 0.0, 1.0, -0.085, 0, 0, 0, 1], [3.0599999999999787, 1.0, 0.0, 0.0, -1.3051, 0.0, 1.0, 0.0, -1.9647, 0.0, 0.0, 1.0, -0.0849, 0, 0, 0, 1], [3.0699999999999785, 1.0, 0.0, 0.0, -1.305, 0.0, 1.0, 0.0, -1.9649, 0.0, 0.0, 1.0, -0.0849, 0, 0, 0, 1], [3.0799999999999783, 1.0, 0.0, 0.0, -1.3049, 0.0, 1.0, 0.0, -1.9651, 0.0, 0.0, 1.0, -0.0849, 0, 0, 0, 1], [3.089999999999978, 1.0, 0.0, 0.0, -1.3048, 0.0, 1.0, 0.0, -1.9654, 0.0, 0.0, 1.0, -0.0848, 0, 0, 0, 1], [3.099999999999978, 1.0, 0.0, 0.0, -1.3047, 0.0, 1.0, 0.0, -1.9656, 0.0, 0.0, 1.0, -0.0848, 0, 0, 0, 1], [3.1099999999999777, 1.0, 0.0, 0.0, -1.3046, 0.0, 1.0, 0.0, -1.9658, 0.0, 0.0, 1.0, -0.0848, 0, 0, 0, 1], [3.1199999999999775, 1.0, 0.0, 0.0, -1.3045, 0.0, 1.0, 0.0, -1.966, 0.0, 0.0, 1.0, -0.0847, 0, 0, 0, 1], [3.1299999999999772, 1.0, 0.0, 0.0, -1.3044, 0.0, 1.0, 0.0, -1.9662, 0.0, 0.0, 1.0, -0.0847, 0, 0, 0, 1], [3.139999999999977, 1.0, 0.0, 0.0, -1.3043, 0.0, 1.0, 0.0, -1.9664, 0.0, 0.0, 1.0, -0.0847, 0, 0, 0, 1], [3.149999999999977, 1.0, 0.0, 0.0, -1.3042, 0.0, 1.0, 0.0, -1.9666, 0.0, 0.0, 1.0, -0.0847, 0, 0, 0, 1], [3.1599999999999766, 1.0, 0.0, 0.0, -1.3041, 0.0, 1.0, 0.0, -1.9668, 0.0, 0.0, 1.0, -0.0846, 0, 0, 0, 1], [3.1699999999999764, 1.0, 0.0, 0.0, -1.3041, 0.0, 1.0, 0.0, -1.967, 0.0, 0.0, 1.0, -0.0846, 0, 0, 0, 1], [3.179999999999976, 1.0, 0.0, 0.0, -1.304, 0.0, 1.0, 0.0, -1.9672, 0.0, 0.0, 1.0, -0.0846, 0, 0, 0, 1], [3.189999999999976, 1.0, 0.0, 0.0, -1.3039, 0.0, 1.0, 0.0, -1.9674, 0.0, 0.0, 1.0, -0.0846, 0, 0, 0, 1]], material_var_ball_id_127668062065360);
+// Color animation for var_ball_id_127668062065360
+const colorFrames_var_ball_id_127668062065360 = [[0, 'yellow'], [0.01, 'yellow'], [0.02, 'yellow'], [0.03, 'yellow'], [0.04, 'yellow'], [0.05, 'yellow'], [0.060000000000000005, 'yellow'], [0.07, 'yellow'], [0.08, 'yellow'], [0.09, 'yellow'], [0.09999999999999999, 'yellow'], [0.10999999999999999, 'yellow'], [0.11999999999999998, 'yellow'], [0.12999999999999998, 'yellow'], [0.13999999999999999, 'yellow'], [0.15, 'yellow'], [0.16, 'yellow'], [0.17, 'yellow'], [0.18000000000000002, 'yellow'], [0.19000000000000003, 'yellow'], [0.20000000000000004, 'yellow'], [0.21000000000000005, 'yellow'], [0.22000000000000006, 'yellow'], [0.23000000000000007, 'yellow'], [0.24000000000000007, 'yellow'], [0.25000000000000006, 'yellow'], [0.26000000000000006, 'yellow'], [0.2700000000000001, 'yellow'], [0.2800000000000001, 'yellow'], [0.2900000000000001, 'yellow'], [0.3000000000000001, 'yellow'], [0.3100000000000001, 'yellow'], [0.3200000000000001, 'yellow'], [0.3300000000000001, 'yellow'], [0.34000000000000014, 'yellow'], [0.35000000000000014, 'yellow'], [0.36000000000000015, 'yellow'], [0.37000000000000016, 'yellow'], [0.38000000000000017, 'yellow'], [0.3900000000000002, 'yellow'], [0.4000000000000002, 'yellow'], [0.4100000000000002, 'yellow'], [0.4200000000000002, 'yellow'], [0.4300000000000002, 'yellow'], [0.4400000000000002, 'yellow'], [0.45000000000000023, 'yellow'], [0.46000000000000024, 'yellow'], [0.47000000000000025, 'yellow'], [0.48000000000000026, 'yellow'], [0.49000000000000027, 'yellow'], [0.5000000000000002, 'yellow'], [0.5100000000000002, 'yellow'], [0.5200000000000002, 'yellow'], [0.5300000000000002, 'yellow'], [0.5400000000000003, 'yellow'], [0.5500000000000003, 'yellow'], [0.5600000000000003, 'yellow'], [0.5700000000000003, 'yellow'], [0.5800000000000003, 'yellow'], [0.5900000000000003, 'yellow'], [0.6000000000000003, 'yellow'], [0.6100000000000003, 'yellow'], [0.6200000000000003, 'yellow'], [0.6300000000000003, 'yellow'], [0.6400000000000003, 'yellow'], [0.6500000000000004, 'yellow'], [0.6600000000000004, 'yellow'], [0.6700000000000004, 'yellow'], [0.6800000000000004, 'yellow'], [0.6900000000000004, 'yellow'], [0.7000000000000004, 'yellow'], [0.7100000000000004, 'yellow'], [0.7200000000000004, 'yellow'], [0.7300000000000004, 'yellow'], [0.7400000000000004, 'yellow'], [0.7500000000000004, 'yellow'], [0.7600000000000005, 'yellow'], [0.7700000000000005, 'yellow'], [0.7800000000000005, 'yellow'], [0.7900000000000005, 'yellow'], [0.8000000000000005, 'yellow'], [0.8100000000000005, 'yellow'], [0.8200000000000005, 'yellow'], [0.8300000000000005, 'yellow'], [0.8400000000000005, 'yellow'], [0.8500000000000005, 'yellow'], [0.8600000000000005, 'yellow'], [0.8700000000000006, 'yellow'], [0.8800000000000006, 'yellow'], [0.8900000000000006, 'yellow'], [0.9000000000000006, 'yellow'], [0.9100000000000006, 'yellow'], [0.9200000000000006, 'yellow'], [0.9300000000000006, 'yellow'], [0.9400000000000006, 'yellow'], [0.9500000000000006, 'yellow'], [0.9600000000000006, 'yellow'], [0.9700000000000006, 'yellow'], [0.9800000000000006, 'yellow'], [0.9900000000000007, 'yellow'], [1.0000000000000007, 'yellow'], [1.0100000000000007, 'yellow'], [1.0200000000000007, 'yellow'], [1.0300000000000007, 'yellow'], [1.0400000000000007, 'yellow'], [1.0500000000000007, 'yellow'], [1.0600000000000007, 'yellow'], [1.0700000000000007, 'yellow'], [1.0800000000000007, 'yellow'], [1.0900000000000007, 'yellow'], [1.1000000000000008, 'yellow'], [1.1100000000000008, 'yellow'], [1.1200000000000008, 'yellow'], [1.1300000000000008, 'yellow'], [1.1400000000000008, 'yellow'], [1.1500000000000008, 'yellow'], [1.1600000000000008, 'yellow'], [1.1700000000000008, 'yellow'], [1.1800000000000008, 'yellow'], [1.1900000000000008, 'yellow'], [1.2000000000000008, 'yellow'], [1.2100000000000009, 'yellow'], [1.2200000000000009, 'yellow'], [1.2300000000000009, 'yellow'], [1.2400000000000009, 'yellow'], [1.2500000000000009, 'yellow'], [1.260000000000001, 'yellow'], [1.270000000000001, 'yellow'], [1.280000000000001, 'yellow'], [1.290000000000001, 'yellow'], [1.300000000000001, 'yellow'], [1.310000000000001, 'yellow'], [1.320000000000001, 'yellow'], [1.330000000000001, 'yellow'], [1.340000000000001, 'yellow'], [1.350000000000001, 'yellow'], [1.360000000000001, 'yellow'], [1.370000000000001, 'yellow'], [1.380000000000001, 'yellow'], [1.390000000000001, 'yellow'], [1.400000000000001, 'yellow'], [1.410000000000001, 'yellow'], [1.420000000000001, 'yellow'], [1.430000000000001, 'yellow'], [1.440000000000001, 'yellow'], [1.450000000000001, 'yellow'], [1.460000000000001, 'yellow'], [1.470000000000001, 'yellow'], [1.480000000000001, 'yellow'], [1.490000000000001, 'yellow'], [1.500000000000001, 'yellow'], [1.5100000000000011, 'yellow'], [1.5200000000000011, 'yellow'], [1.5300000000000011, 'yellow'], [1.5400000000000011, 'yellow'], [1.5500000000000012, 'yellow'], [1.5600000000000012, 'yellow'], [1.5700000000000012, 'yellow'], [1.5800000000000012, 'yellow'], [1.5900000000000012, 'yellow'], [1.6000000000000012, 'yellow'], [1.6100000000000012, 'yellow'], [1.6200000000000012, 'yellow'], [1.6300000000000012, 'yellow'], [1.6400000000000012, 'yellow'], [1.6500000000000012, 'yellow'], [1.6600000000000013, 'yellow'], [1.6700000000000013, 'yellow'], [1.6800000000000013, 'yellow'], [1.6900000000000013, 'yellow'], [1.7000000000000013, 'yellow'], [1.7100000000000013, 'yellow'], [1.7200000000000013, 'yellow'], [1.7300000000000013, 'yellow'], [1.7400000000000013, 'yellow'], [1.7500000000000013, 'yellow'], [1.7600000000000013, 'yellow'], [1.7700000000000014, 'yellow'], [1.7800000000000014, 'yellow'], [1.7900000000000014, 'yellow'], [1.8000000000000014, 'yellow'], [1.8100000000000014, 'yellow'], [1.8200000000000014, 'yellow'], [1.8300000000000014, 'yellow'], [1.8400000000000014, 'yellow'], [1.8500000000000014, 'yellow'], [1.8600000000000014, 'yellow'], [1.8700000000000014, 'yellow'], [1.8800000000000014, 'yellow'], [1.8900000000000015, 'yellow'], [1.9000000000000015, 'yellow'], [1.9100000000000015, 'yellow'], [1.9200000000000015, 'yellow'], [1.9300000000000015, 'yellow'], [1.9400000000000015, 'yellow'], [1.9500000000000015, 'yellow'], [1.9600000000000015, 'yellow'], [1.9700000000000015, 'yellow'], [1.9800000000000015, 'yellow'], [1.9900000000000015, 'yellow'], [2.0000000000000013, 'yellow'], [2.010000000000001, 'yellow'], [2.020000000000001, 'yellow'], [2.0300000000000007, 'yellow'], [2.0400000000000005, 'yellow'], [2.0500000000000003, 'yellow'], [2.06, 'yellow'], [2.07, 'yellow'], [2.0799999999999996, 'yellow'], [2.0899999999999994, 'yellow'], [2.099999999999999, 'yellow'], [2.109999999999999, 'yellow'], [2.1199999999999988, 'yellow'], [2.1299999999999986, 'yellow'], [2.1399999999999983, 'yellow'], [2.149999999999998, 'yellow'], [2.159999999999998, 'yellow'], [2.1699999999999977, 'yellow'], [2.1799999999999975, 'yellow'], [2.1899999999999973, 'yellow'], [2.199999999999997, 'yellow'], [2.209999999999997, 'yellow'], [2.2199999999999966, 'yellow'], [2.2299999999999964, 'yellow'], [2.239999999999996, 'yellow'], [2.249999999999996, 'yellow'], [2.259999999999996, 'yellow'], [2.2699999999999956, 'yellow'], [2.2799999999999954, 'yellow'], [2.289999999999995, 'yellow'], [2.299999999999995, 'yellow'], [2.3099999999999947, 'yellow'], [2.3199999999999945, 'yellow'], [2.3299999999999943, 'yellow'], [2.339999999999994, 'yellow'], [2.349999999999994, 'yellow'], [2.3599999999999937, 'yellow'], [2.3699999999999934, 'yellow'], [2.3799999999999932, 'yellow'], [2.389999999999993, 'yellow'], [2.399999999999993, 'yellow'], [2.4099999999999926, 'yellow'], [2.4199999999999924, 'yellow'], [2.429999999999992, 'yellow'], [2.439999999999992, 'yellow'], [2.4499999999999917, 'yellow'], [2.4599999999999915, 'yellow'], [2.4699999999999913, 'yellow'], [2.479999999999991, 'yellow'], [2.489999999999991, 'yellow'], [2.4999999999999907, 'yellow'], [2.5099999999999905, 'yellow'], [2.5199999999999902, 'yellow'], [2.52999999999999, 'yellow'], [2.53999999999999, 'yellow'], [2.5499999999999896, 'yellow'], [2.5599999999999894, 'yellow'], [2.569999999999989, 'yellow'], [2.579999999999989, 'yellow'], [2.5899999999999888, 'yellow'], [2.5999999999999885, 'yellow'], [2.6099999999999883, 'yellow'], [2.619999999999988, 'yellow'], [2.629999999999988, 'yellow'], [2.6399999999999877, 'yellow'], [2.6499999999999875, 'yellow'], [2.6599999999999873, 'yellow'], [2.669999999999987, 'yellow'], [2.679999999999987, 'yellow'], [2.6899999999999866, 'yellow'], [2.6999999999999864, 'yellow'], [2.709999999999986, 'yellow'], [2.719999999999986, 'yellow'], [2.7299999999999858, 'yellow'], [2.7399999999999856, 'yellow'], [2.7499999999999853, 'yellow'], [2.759999999999985, 'yellow'], [2.769999999999985, 'yellow'], [2.7799999999999847, 'yellow'], [2.7899999999999845, 'yellow'], [2.7999999999999843, 'yellow'], [2.809999999999984, 'yellow'], [2.819999999999984, 'yellow'], [2.8299999999999836, 'yellow'], [2.8399999999999834, 'yellow'], [2.849999999999983, 'yellow'], [2.859999999999983, 'yellow'], [2.869999999999983, 'yellow'], [2.8799999999999826, 'yellow'], [2.8899999999999824, 'yellow'], [2.899999999999982, 'yellow'], [2.909999999999982, 'yellow'], [2.9199999999999817, 'yellow'], [2.9299999999999815, 'yellow'], [2.9399999999999813, 'yellow'], [2.949999999999981, 'yellow'], [2.959999999999981, 'yellow'], [2.9699999999999807, 'yellow'], [2.9799999999999804, 'yellow'], [2.9899999999999802, 'yellow'], [2.99999999999998, 'yellow'], [3.00999999999998, 'yellow'], [3.0199999999999796, 'yellow'], [3.0299999999999794, 'yellow'], [3.039999999999979, 'yellow'], [3.049999999999979, 'yellow'], [3.0599999999999787, 'yellow'], [3.0699999999999785, 'yellow'], [3.0799999999999783, 'yellow'], [3.089999999999978, 'yellow'], [3.099999999999978, 'yellow'], [3.1099999999999777, 'yellow'], [3.1199999999999775, 'yellow'], [3.1299999999999772, 'yellow'], [3.139999999999977, 'yellow'], [3.149999999999977, 'yellow'], [3.1599999999999766, 'yellow'], [3.1699999999999764, 'yellow'], [3.179999999999976, 'yellow'], [3.189999999999976, 'yellow']];
+// Function to update color based on time
+function updateColor_var_ball_id_127668062065360(time) {
+    if (colorFrames_var_ball_id_127668062065360.length === 0) return;
+    // Find the appropriate color frame
+    let color = colorFrames_var_ball_id_127668062065360[0][1];
+    for (let i = 0; i < colorFrames_var_ball_id_127668062065360.length; i++) {
+        if (time >= colorFrames_var_ball_id_127668062065360[i][0]) {
+            color = colorFrames_var_ball_id_127668062065360[i][1];
+        } else {
+            break;
+        }
+    }
+    // Update material color directly
+    if (material_var_ball_id_127668062065360 && material_var_ball_id_127668062065360.color) {
+        material_var_ball_id_127668062065360.color.set(color);
+    }
+}
+// Hook into Ball's update method if it exists
+if (var_var_ball_id_127668062065360.update) {
+    const originalUpdate_var_ball_id_127668062065360 = var_var_ball_id_127668062065360.update.bind(var_var_ball_id_127668062065360);
+    var_var_ball_id_127668062065360.update = function(time) {
+        originalUpdate_var_ball_id_127668062065360(time);
+        updateColor_var_ball_id_127668062065360(time);
+    };
+} else {
+    // Store update function for animation loop
+    if (!window.uaibotColorUpdaters) window.uaibotColorUpdaters = [];
+    window.uaibotColorUpdaters.push(updateColor_var_ball_id_127668062065360);
+}
+sceneElements.push(var_var_ball_id_127668062065360);
+
+//BEGIN DECLARATION OF THE BALL 'var_ball_id_127668062105232'
+
+const material_var_ball_id_127668062105232 = new MeshPhysicalMaterial({
+opacity: 1,
+transparent: false,
+aoMapIntensity: 1,
+bumpScale: 1,
+color: "blue",
+emissive: "black",
+emissiveIntensity: 1,
+envMapIntensity: 1,
+flatShading: false,
+lightMapIntensity: 1,
+metalness: 0,
+normalScale: new Vector2(1,1),
+refractionRatio: 0.98,
+roughness: 1,
+clearcoat: 0,
+clearcoatNormalScale: new Vector2(1,1),
+clearcoatRoughness: 0,
+ior: 1.5,
+reflectivity: 0.5,
+sheen: 0,
+sheenRoughness: 1,
+sheenColor: "white",
+specularIntensity: 0,
+specularColor: "white",
+transmission: 0,
+});
+
+
+const var_var_ball_id_127668062105232 = new Ball(0.15,[[0, 1.0, 0.0, 0.0, -1.8234, 0.0, 1.0, 0.0, 0.6672, 0.0, 0.0, 1.0, 0.0679, 0, 0, 0, 1]], material_var_ball_id_127668062105232);
+// Color animation for var_ball_id_127668062105232
+const colorFrames_var_ball_id_127668062105232 = [[0, 'blue']];
+// Function to update color based on time
+function updateColor_var_ball_id_127668062105232(time) {
+    if (colorFrames_var_ball_id_127668062105232.length === 0) return;
+    // Find the appropriate color frame
+    let color = colorFrames_var_ball_id_127668062105232[0][1];
+    for (let i = 0; i < colorFrames_var_ball_id_127668062105232.length; i++) {
+        if (time >= colorFrames_var_ball_id_127668062105232[i][0]) {
+            color = colorFrames_var_ball_id_127668062105232[i][1];
+        } else {
+            break;
+        }
+    }
+    // Update material color directly
+    if (material_var_ball_id_127668062105232 && material_var_ball_id_127668062105232.color) {
+        material_var_ball_id_127668062105232.color.set(color);
+    }
+}
+// Hook into Ball's update method if it exists
+if (var_var_ball_id_127668062105232.update) {
+    const originalUpdate_var_ball_id_127668062105232 = var_var_ball_id_127668062105232.update.bind(var_var_ball_id_127668062105232);
+    var_var_ball_id_127668062105232.update = function(time) {
+        originalUpdate_var_ball_id_127668062105232(time);
+        updateColor_var_ball_id_127668062105232(time);
+    };
+} else {
+    // Store update function for animation loop
+    if (!window.uaibotColorUpdaters) window.uaibotColorUpdaters = [];
+    window.uaibotColorUpdaters.push(updateColor_var_ball_id_127668062105232);
+}
+sceneElements.push(var_var_ball_id_127668062105232);
+
+//BEGIN DECLARATION OF THE BALL 'var_ball_id_127668062105424'
+
+const material_var_ball_id_127668062105424 = new MeshPhysicalMaterial({
+opacity: 1,
+transparent: false,
+aoMapIntensity: 1,
+bumpScale: 1,
+color: "green",
+emissive: "black",
+emissiveIntensity: 1,
+envMapIntensity: 1,
+flatShading: false,
+lightMapIntensity: 1,
+metalness: 0,
+normalScale: new Vector2(1,1),
+refractionRatio: 0.98,
+roughness: 1,
+clearcoat: 0,
+clearcoatNormalScale: new Vector2(1,1),
+clearcoatRoughness: 0,
+ior: 1.5,
+reflectivity: 0.5,
+sheen: 0,
+sheenRoughness: 1,
+sheenColor: "white",
+specularIntensity: 0,
+specularColor: "white",
+transmission: 0,
+});
+
+
+const var_var_ball_id_127668062105424 = new Ball(0.15,[[0, 1.0, 0.0, 0.0, -1.3, 0.0, 1.0, 0.0, -1.9763, 0.0, 0.0, 1.0, -0.0833, 0, 0, 0, 1]], material_var_ball_id_127668062105424);
+// Color animation for var_ball_id_127668062105424
+const colorFrames_var_ball_id_127668062105424 = [[0, 'green']];
+// Function to update color based on time
+function updateColor_var_ball_id_127668062105424(time) {
+    if (colorFrames_var_ball_id_127668062105424.length === 0) return;
+    // Find the appropriate color frame
+    let color = colorFrames_var_ball_id_127668062105424[0][1];
+    for (let i = 0; i < colorFrames_var_ball_id_127668062105424.length; i++) {
+        if (time >= colorFrames_var_ball_id_127668062105424[i][0]) {
+            color = colorFrames_var_ball_id_127668062105424[i][1];
+        } else {
+            break;
+        }
+    }
+    // Update material color directly
+    if (material_var_ball_id_127668062105424 && material_var_ball_id_127668062105424.color) {
+        material_var_ball_id_127668062105424.color.set(color);
+    }
+}
+// Hook into Ball's update method if it exists
+if (var_var_ball_id_127668062105424.update) {
+    const originalUpdate_var_ball_id_127668062105424 = var_var_ball_id_127668062105424.update.bind(var_var_ball_id_127668062105424);
+    var_var_ball_id_127668062105424.update = function(time) {
+        originalUpdate_var_ball_id_127668062105424(time);
+        updateColor_var_ball_id_127668062105424(time);
+    };
+} else {
+    // Store update function for animation loop
+    if (!window.uaibotColorUpdaters) window.uaibotColorUpdaters = [];
+    window.uaibotColorUpdaters.push(updateColor_var_ball_id_127668062105424);
+}
+sceneElements.push(var_var_ball_id_127668062105424);
+
+//BEGIN DECLARATION OF THE BALL 'var_ball_id_127668062105088'
+
+const material_var_ball_id_127668062105088 = new MeshPhysicalMaterial({
+opacity: 1,
+transparent: false,
+aoMapIntensity: 1,
+bumpScale: 1,
+color: "purple",
+emissive: "black",
+emissiveIntensity: 1,
+envMapIntensity: 1,
+flatShading: false,
+lightMapIntensity: 1,
+metalness: 0,
+normalScale: new Vector2(1,1),
+refractionRatio: 0.98,
+roughness: 1,
+clearcoat: 0,
+clearcoatNormalScale: new Vector2(1,1),
+clearcoatRoughness: 0,
+ior: 1.5,
+reflectivity: 0.5,
+sheen: 0,
+sheenRoughness: 1,
+sheenColor: "white",
+specularIntensity: 0,
+specularColor: "white",
+transmission: 0,
+});
+
+
+const var_var_ball_id_127668062105088 = new Ball(0.16596952202299697,[[0, 1.0, 0.0, 0.0, -1.5049, 0.0, 1.0, 0.0, 0.8559, 0.0, 0.0, 1.0, -0.4579, 0, 0, 0, 1]], material_var_ball_id_127668062105088);
+// Color animation for var_ball_id_127668062105088
+const colorFrames_var_ball_id_127668062105088 = [[0, 'purple']];
+// Function to update color based on time
+function updateColor_var_ball_id_127668062105088(time) {
+    if (colorFrames_var_ball_id_127668062105088.length === 0) return;
+    // Find the appropriate color frame
+    let color = colorFrames_var_ball_id_127668062105088[0][1];
+    for (let i = 0; i < colorFrames_var_ball_id_127668062105088.length; i++) {
+        if (time >= colorFrames_var_ball_id_127668062105088[i][0]) {
+            color = colorFrames_var_ball_id_127668062105088[i][1];
+        } else {
+            break;
+        }
+    }
+    // Update material color directly
+    if (material_var_ball_id_127668062105088 && material_var_ball_id_127668062105088.color) {
+        material_var_ball_id_127668062105088.color.set(color);
+    }
+}
+// Hook into Ball's update method if it exists
+if (var_var_ball_id_127668062105088.update) {
+    const originalUpdate_var_ball_id_127668062105088 = var_var_ball_id_127668062105088.update.bind(var_var_ball_id_127668062105088);
+    var_var_ball_id_127668062105088.update = function(time) {
+        originalUpdate_var_ball_id_127668062105088(time);
+        updateColor_var_ball_id_127668062105088(time);
+    };
+} else {
+    // Store update function for animation loop
+    if (!window.uaibotColorUpdaters) window.uaibotColorUpdaters = [];
+    window.uaibotColorUpdaters.push(updateColor_var_ball_id_127668062105088);
+}
+sceneElements.push(var_var_ball_id_127668062105088);
+
+//BEGIN DECLARATION OF THE BALL 'var_ball_id_127668062106480'
+
+const material_var_ball_id_127668062106480 = new MeshPhysicalMaterial({
+opacity: 1,
+transparent: false,
+aoMapIntensity: 1,
+bumpScale: 1,
+color: "purple",
+emissive: "black",
+emissiveIntensity: 1,
+envMapIntensity: 1,
+flatShading: false,
+lightMapIntensity: 1,
+metalness: 0,
+normalScale: new Vector2(1,1),
+refractionRatio: 0.98,
+roughness: 1,
+clearcoat: 0,
+clearcoatNormalScale: new Vector2(1,1),
+clearcoatRoughness: 0,
+ior: 1.5,
+reflectivity: 0.5,
+sheen: 0,
+sheenRoughness: 1,
+sheenColor: "white",
+specularIntensity: 0,
+specularColor: "white",
+transmission: 0,
+});
+
+
+const var_var_ball_id_127668062106480 = new Ball(0.48675566875871856,[[0, 1.0, 0.0, 0.0, -0.9086, 0.0, 1.0, 0.0, 1.3287, 0.0, 0.0, 1.0, 0.9025, 0, 0, 0, 1]], material_var_ball_id_127668062106480);
+// Color animation for var_ball_id_127668062106480
+const colorFrames_var_ball_id_127668062106480 = [[0, 'purple']];
+// Function to update color based on time
+function updateColor_var_ball_id_127668062106480(time) {
+    if (colorFrames_var_ball_id_127668062106480.length === 0) return;
+    // Find the appropriate color frame
+    let color = colorFrames_var_ball_id_127668062106480[0][1];
+    for (let i = 0; i < colorFrames_var_ball_id_127668062106480.length; i++) {
+        if (time >= colorFrames_var_ball_id_127668062106480[i][0]) {
+            color = colorFrames_var_ball_id_127668062106480[i][1];
+        } else {
+            break;
+        }
+    }
+    // Update material color directly
+    if (material_var_ball_id_127668062106480 && material_var_ball_id_127668062106480.color) {
+        material_var_ball_id_127668062106480.color.set(color);
+    }
+}
+// Hook into Ball's update method if it exists
+if (var_var_ball_id_127668062106480.update) {
+    const originalUpdate_var_ball_id_127668062106480 = var_var_ball_id_127668062106480.update.bind(var_var_ball_id_127668062106480);
+    var_var_ball_id_127668062106480.update = function(time) {
+        originalUpdate_var_ball_id_127668062106480(time);
+        updateColor_var_ball_id_127668062106480(time);
+    };
+} else {
+    // Store update function for animation loop
+    if (!window.uaibotColorUpdaters) window.uaibotColorUpdaters = [];
+    window.uaibotColorUpdaters.push(updateColor_var_ball_id_127668062106480);
+}
+sceneElements.push(var_var_ball_id_127668062106480);
+
+//BEGIN DECLARATION OF THE BALL 'var_ball_id_127668062106624'
+
+const material_var_ball_id_127668062106624 = new MeshPhysicalMaterial({
+opacity: 1,
+transparent: false,
+aoMapIntensity: 1,
+bumpScale: 1,
+color: "purple",
+emissive: "black",
+emissiveIntensity: 1,
+envMapIntensity: 1,
+flatShading: false,
+lightMapIntensity: 1,
+metalness: 0,
+normalScale: new Vector2(1,1),
+refractionRatio: 0.98,
+roughness: 1,
+clearcoat: 0,
+clearcoatNormalScale: new Vector2(1,1),
+clearcoatRoughness: 0,
+ior: 1.5,
+reflectivity: 0.5,
+sheen: 0,
+sheenRoughness: 1,
+sheenColor: "white",
+specularIntensity: 0,
+specularColor: "white",
+transmission: 0,
+});
+
+
+const var_var_ball_id_127668062106624 = new Ball(0.9083373007233082,[[0, 1.0, 0.0, 0.0, -0.1146, 0.0, 1.0, 0.0, -1.7811, 0.0, 0.0, 1.0, 1.0487, 0, 0, 0, 1]], material_var_ball_id_127668062106624);
+// Color animation for var_ball_id_127668062106624
+const colorFrames_var_ball_id_127668062106624 = [[0, 'purple']];
+// Function to update color based on time
+function updateColor_var_ball_id_127668062106624(time) {
+    if (colorFrames_var_ball_id_127668062106624.length === 0) return;
+    // Find the appropriate color frame
+    let color = colorFrames_var_ball_id_127668062106624[0][1];
+    for (let i = 0; i < colorFrames_var_ball_id_127668062106624.length; i++) {
+        if (time >= colorFrames_var_ball_id_127668062106624[i][0]) {
+            color = colorFrames_var_ball_id_127668062106624[i][1];
+        } else {
+            break;
+        }
+    }
+    // Update material color directly
+    if (material_var_ball_id_127668062106624 && material_var_ball_id_127668062106624.color) {
+        material_var_ball_id_127668062106624.color.set(color);
+    }
+}
+// Hook into Ball's update method if it exists
+if (var_var_ball_id_127668062106624.update) {
+    const originalUpdate_var_ball_id_127668062106624 = var_var_ball_id_127668062106624.update.bind(var_var_ball_id_127668062106624);
+    var_var_ball_id_127668062106624.update = function(time) {
+        originalUpdate_var_ball_id_127668062106624(time);
+        updateColor_var_ball_id_127668062106624(time);
+    };
+} else {
+    // Store update function for animation loop
+    if (!window.uaibotColorUpdaters) window.uaibotColorUpdaters = [];
+    window.uaibotColorUpdaters.push(updateColor_var_ball_id_127668062106624);
+}
+sceneElements.push(var_var_ball_id_127668062106624);
+
+//BEGIN DECLARATION OF THE BALL 'var_ball_id_127668062106768'
+
+const material_var_ball_id_127668062106768 = new MeshPhysicalMaterial({
+opacity: 1,
+transparent: false,
+aoMapIntensity: 1,
+bumpScale: 1,
+color: "purple",
+emissive: "black",
+emissiveIntensity: 1,
+envMapIntensity: 1,
+flatShading: false,
+lightMapIntensity: 1,
+metalness: 0,
+normalScale: new Vector2(1,1),
+refractionRatio: 0.98,
+roughness: 1,
+clearcoat: 0,
+clearcoatNormalScale: new Vector2(1,1),
+clearcoatRoughness: 0,
+ior: 1.5,
+reflectivity: 0.5,
+sheen: 0,
+sheenRoughness: 1,
+sheenColor: "white",
+specularIntensity: 0,
+specularColor: "white",
+transmission: 0,
+});
+
+
+const var_var_ball_id_127668062106768 = new Ball(0.48688144329534677,[[0, 1.0, 0.0, 0.0, -1.4792, 0.0, 1.0, 0.0, 0.8554, 0.0, 0.0, 1.0, -1.727, 0, 0, 0, 1]], material_var_ball_id_127668062106768);
+// Color animation for var_ball_id_127668062106768
+const colorFrames_var_ball_id_127668062106768 = [[0, 'purple']];
+// Function to update color based on time
+function updateColor_var_ball_id_127668062106768(time) {
+    if (colorFrames_var_ball_id_127668062106768.length === 0) return;
+    // Find the appropriate color frame
+    let color = colorFrames_var_ball_id_127668062106768[0][1];
+    for (let i = 0; i < colorFrames_var_ball_id_127668062106768.length; i++) {
+        if (time >= colorFrames_var_ball_id_127668062106768[i][0]) {
+            color = colorFrames_var_ball_id_127668062106768[i][1];
+        } else {
+            break;
+        }
+    }
+    // Update material color directly
+    if (material_var_ball_id_127668062106768 && material_var_ball_id_127668062106768.color) {
+        material_var_ball_id_127668062106768.color.set(color);
+    }
+}
+// Hook into Ball's update method if it exists
+if (var_var_ball_id_127668062106768.update) {
+    const originalUpdate_var_ball_id_127668062106768 = var_var_ball_id_127668062106768.update.bind(var_var_ball_id_127668062106768);
+    var_var_ball_id_127668062106768.update = function(time) {
+        originalUpdate_var_ball_id_127668062106768(time);
+        updateColor_var_ball_id_127668062106768(time);
+    };
+} else {
+    // Store update function for animation loop
+    if (!window.uaibotColorUpdaters) window.uaibotColorUpdaters = [];
+    window.uaibotColorUpdaters.push(updateColor_var_ball_id_127668062106768);
+}
+sceneElements.push(var_var_ball_id_127668062106768);
+
+//BEGIN DECLARATION OF THE BALL 'var_ball_id_127668062106912'
+
+const material_var_ball_id_127668062106912 = new MeshPhysicalMaterial({
+opacity: 1,
+transparent: false,
+aoMapIntensity: 1,
+bumpScale: 1,
+color: "purple",
+emissive: "black",
+emissiveIntensity: 1,
+envMapIntensity: 1,
+flatShading: false,
+lightMapIntensity: 1,
+metalness: 0,
+normalScale: new Vector2(1,1),
+refractionRatio: 0.98,
+roughness: 1,
+clearcoat: 0,
+clearcoatNormalScale: new Vector2(1,1),
+clearcoatRoughness: 0,
+ior: 1.5,
+reflectivity: 0.5,
+sheen: 0,
+sheenRoughness: 1,
+sheenColor: "white",
+specularIntensity: 0,
+specularColor: "white",
+transmission: 0,
+});
+
+
+const var_var_ball_id_127668062106912 = new Ball(0.8860769830606995,[[0, 1.0, 0.0, 0.0, 0.5336, 0.0, 1.0, 0.0, 0.4757, 0.0, 0.0, 1.0, -1.8229, 0, 0, 0, 1]], material_var_ball_id_127668062106912);
+// Color animation for var_ball_id_127668062106912
+const colorFrames_var_ball_id_127668062106912 = [[0, 'purple']];
+// Function to update color based on time
+function updateColor_var_ball_id_127668062106912(time) {
+    if (colorFrames_var_ball_id_127668062106912.length === 0) return;
+    // Find the appropriate color frame
+    let color = colorFrames_var_ball_id_127668062106912[0][1];
+    for (let i = 0; i < colorFrames_var_ball_id_127668062106912.length; i++) {
+        if (time >= colorFrames_var_ball_id_127668062106912[i][0]) {
+            color = colorFrames_var_ball_id_127668062106912[i][1];
+        } else {
+            break;
+        }
+    }
+    // Update material color directly
+    if (material_var_ball_id_127668062106912 && material_var_ball_id_127668062106912.color) {
+        material_var_ball_id_127668062106912.color.set(color);
+    }
+}
+// Hook into Ball's update method if it exists
+if (var_var_ball_id_127668062106912.update) {
+    const originalUpdate_var_ball_id_127668062106912 = var_var_ball_id_127668062106912.update.bind(var_var_ball_id_127668062106912);
+    var_var_ball_id_127668062106912.update = function(time) {
+        originalUpdate_var_ball_id_127668062106912(time);
+        updateColor_var_ball_id_127668062106912(time);
+    };
+} else {
+    // Store update function for animation loop
+    if (!window.uaibotColorUpdaters) window.uaibotColorUpdaters = [];
+    window.uaibotColorUpdaters.push(updateColor_var_ball_id_127668062106912);
+}
+sceneElements.push(var_var_ball_id_127668062106912);
+
+//BEGIN DECLARATION OF THE BALL 'var_ball_id_127668062107056'
+
+const material_var_ball_id_127668062107056 = new MeshPhysicalMaterial({
+opacity: 1,
+transparent: false,
+aoMapIntensity: 1,
+bumpScale: 1,
+color: "purple",
+emissive: "black",
+emissiveIntensity: 1,
+envMapIntensity: 1,
+flatShading: false,
+lightMapIntensity: 1,
+metalness: 0,
+normalScale: new Vector2(1,1),
+refractionRatio: 0.98,
+roughness: 1,
+clearcoat: 0,
+clearcoatNormalScale: new Vector2(1,1),
+clearcoatRoughness: 0,
+ior: 1.5,
+reflectivity: 0.5,
+sheen: 0,
+sheenRoughness: 1,
+sheenColor: "white",
+specularIntensity: 0,
+specularColor: "white",
+transmission: 0,
+});
+
+
+const var_var_ball_id_127668062107056 = new Ball(0.24360759593477269,[[0, 1.0, 0.0, 0.0, 0.9566, 0.0, 1.0, 0.0, -1.735, 0.0, 0.0, 1.0, -1.2363, 0, 0, 0, 1]], material_var_ball_id_127668062107056);
+// Color animation for var_ball_id_127668062107056
+const colorFrames_var_ball_id_127668062107056 = [[0, 'purple']];
+// Function to update color based on time
+function updateColor_var_ball_id_127668062107056(time) {
+    if (colorFrames_var_ball_id_127668062107056.length === 0) return;
+    // Find the appropriate color frame
+    let color = colorFrames_var_ball_id_127668062107056[0][1];
+    for (let i = 0; i < colorFrames_var_ball_id_127668062107056.length; i++) {
+        if (time >= colorFrames_var_ball_id_127668062107056[i][0]) {
+            color = colorFrames_var_ball_id_127668062107056[i][1];
+        } else {
+            break;
+        }
+    }
+    // Update material color directly
+    if (material_var_ball_id_127668062107056 && material_var_ball_id_127668062107056.color) {
+        material_var_ball_id_127668062107056.color.set(color);
+    }
+}
+// Hook into Ball's update method if it exists
+if (var_var_ball_id_127668062107056.update) {
+    const originalUpdate_var_ball_id_127668062107056 = var_var_ball_id_127668062107056.update.bind(var_var_ball_id_127668062107056);
+    var_var_ball_id_127668062107056.update = function(time) {
+        originalUpdate_var_ball_id_127668062107056(time);
+        updateColor_var_ball_id_127668062107056(time);
+    };
+} else {
+    // Store update function for animation loop
+    if (!window.uaibotColorUpdaters) window.uaibotColorUpdaters = [];
+    window.uaibotColorUpdaters.push(updateColor_var_ball_id_127668062107056);
+}
+sceneElements.push(var_var_ball_id_127668062107056);
+
+//BEGIN DECLARATION OF THE BALL 'var_ball_id_127668062107200'
+
+const material_var_ball_id_127668062107200 = new MeshPhysicalMaterial({
+opacity: 1,
+transparent: false,
+aoMapIntensity: 1,
+bumpScale: 1,
+color: "purple",
+emissive: "black",
+emissiveIntensity: 1,
+envMapIntensity: 1,
+flatShading: false,
+lightMapIntensity: 1,
+metalness: 0,
+normalScale: new Vector2(1,1),
+refractionRatio: 0.98,
+roughness: 1,
+clearcoat: 0,
+clearcoatNormalScale: new Vector2(1,1),
+clearcoatRoughness: 0,
+ior: 1.5,
+reflectivity: 0.5,
+sheen: 0,
+sheenRoughness: 1,
+sheenColor: "white",
+specularIntensity: 0,
+specularColor: "white",
+transmission: 0,
+});
+
+
+const var_var_ball_id_127668062107200 = new Ball(0.6381051476208258,[[0, 1.0, 0.0, 0.0, 1.3431, 0.0, 1.0, 0.0, 0.5056, 0.0, 0.0, 1.0, 1.5545, 0, 0, 0, 1]], material_var_ball_id_127668062107200);
+// Color animation for var_ball_id_127668062107200
+const colorFrames_var_ball_id_127668062107200 = [[0, 'purple']];
+// Function to update color based on time
+function updateColor_var_ball_id_127668062107200(time) {
+    if (colorFrames_var_ball_id_127668062107200.length === 0) return;
+    // Find the appropriate color frame
+    let color = colorFrames_var_ball_id_127668062107200[0][1];
+    for (let i = 0; i < colorFrames_var_ball_id_127668062107200.length; i++) {
+        if (time >= colorFrames_var_ball_id_127668062107200[i][0]) {
+            color = colorFrames_var_ball_id_127668062107200[i][1];
+        } else {
+            break;
+        }
+    }
+    // Update material color directly
+    if (material_var_ball_id_127668062107200 && material_var_ball_id_127668062107200.color) {
+        material_var_ball_id_127668062107200.color.set(color);
+    }
+}
+// Hook into Ball's update method if it exists
+if (var_var_ball_id_127668062107200.update) {
+    const originalUpdate_var_ball_id_127668062107200 = var_var_ball_id_127668062107200.update.bind(var_var_ball_id_127668062107200);
+    var_var_ball_id_127668062107200.update = function(time) {
+        originalUpdate_var_ball_id_127668062107200(time);
+        updateColor_var_ball_id_127668062107200(time);
+    };
+} else {
+    // Store update function for animation loop
+    if (!window.uaibotColorUpdaters) window.uaibotColorUpdaters = [];
+    window.uaibotColorUpdaters.push(updateColor_var_ball_id_127668062107200);
+}
+sceneElements.push(var_var_ball_id_127668062107200);
+
+//BEGIN DECLARATION OF THE BALL 'var_ball_id_127668062107344'
+
+const material_var_ball_id_127668062107344 = new MeshPhysicalMaterial({
+opacity: 1,
+transparent: false,
+aoMapIntensity: 1,
+bumpScale: 1,
+color: "purple",
+emissive: "black",
+emissiveIntensity: 1,
+envMapIntensity: 1,
+flatShading: false,
+lightMapIntensity: 1,
+metalness: 0,
+normalScale: new Vector2(1,1),
+refractionRatio: 0.98,
+roughness: 1,
+clearcoat: 0,
+clearcoatNormalScale: new Vector2(1,1),
+clearcoatRoughness: 0,
+ior: 1.5,
+reflectivity: 0.5,
+sheen: 0,
+sheenRoughness: 1,
+sheenColor: "white",
+specularIntensity: 0,
+specularColor: "white",
+transmission: 0,
+});
+
+
+const var_var_ball_id_127668062107344 = new Ball(0.27453224074210686,[[0, 1.0, 0.0, 0.0, 0.1732, 0.0, 1.0, 0.0, 1.6325, 0.0, 0.0, 1.0, 1.1649, 0, 0, 0, 1]], material_var_ball_id_127668062107344);
+// Color animation for var_ball_id_127668062107344
+const colorFrames_var_ball_id_127668062107344 = [[0, 'purple']];
+// Function to update color based on time
+function updateColor_var_ball_id_127668062107344(time) {
+    if (colorFrames_var_ball_id_127668062107344.length === 0) return;
+    // Find the appropriate color frame
+    let color = colorFrames_var_ball_id_127668062107344[0][1];
+    for (let i = 0; i < colorFrames_var_ball_id_127668062107344.length; i++) {
+        if (time >= colorFrames_var_ball_id_127668062107344[i][0]) {
+            color = colorFrames_var_ball_id_127668062107344[i][1];
+        } else {
+            break;
+        }
+    }
+    // Update material color directly
+    if (material_var_ball_id_127668062107344 && material_var_ball_id_127668062107344.color) {
+        material_var_ball_id_127668062107344.color.set(color);
+    }
+}
+// Hook into Ball's update method if it exists
+if (var_var_ball_id_127668062107344.update) {
+    const originalUpdate_var_ball_id_127668062107344 = var_var_ball_id_127668062107344.update.bind(var_var_ball_id_127668062107344);
+    var_var_ball_id_127668062107344.update = function(time) {
+        originalUpdate_var_ball_id_127668062107344(time);
+        updateColor_var_ball_id_127668062107344(time);
+    };
+} else {
+    // Store update function for animation loop
+    if (!window.uaibotColorUpdaters) window.uaibotColorUpdaters = [];
+    window.uaibotColorUpdaters.push(updateColor_var_ball_id_127668062107344);
+}
+sceneElements.push(var_var_ball_id_127668062107344);
+
+//BEGIN DECLARATION OF THE BALL 'var_ball_id_127668062107488'
+
+const material_var_ball_id_127668062107488 = new MeshPhysicalMaterial({
+opacity: 1,
+transparent: false,
+aoMapIntensity: 1,
+bumpScale: 1,
+color: "purple",
+emissive: "black",
+emissiveIntensity: 1,
+envMapIntensity: 1,
+flatShading: false,
+lightMapIntensity: 1,
+metalness: 0,
+normalScale: new Vector2(1,1),
+refractionRatio: 0.98,
+roughness: 1,
+clearcoat: 0,
+clearcoatNormalScale: new Vector2(1,1),
+clearcoatRoughness: 0,
+ior: 1.5,
+reflectivity: 0.5,
+sheen: 0,
+sheenRoughness: 1,
+sheenColor: "white",
+specularIntensity: 0,
+specularColor: "white",
+transmission: 0,
+});
+
+
+const var_var_ball_id_127668062107488 = new Ball(0.5280848212704183,[[0, 1.0, 0.0, 0.0, -1.224, 0.0, 1.0, 0.0, 0.0582, 0.0, 0.0, 1.0, 1.0416, 0, 0, 0, 1]], material_var_ball_id_127668062107488);
+// Color animation for var_ball_id_127668062107488
+const colorFrames_var_ball_id_127668062107488 = [[0, 'purple']];
+// Function to update color based on time
+function updateColor_var_ball_id_127668062107488(time) {
+    if (colorFrames_var_ball_id_127668062107488.length === 0) return;
+    // Find the appropriate color frame
+    let color = colorFrames_var_ball_id_127668062107488[0][1];
+    for (let i = 0; i < colorFrames_var_ball_id_127668062107488.length; i++) {
+        if (time >= colorFrames_var_ball_id_127668062107488[i][0]) {
+            color = colorFrames_var_ball_id_127668062107488[i][1];
+        } else {
+            break;
+        }
+    }
+    // Update material color directly
+    if (material_var_ball_id_127668062107488 && material_var_ball_id_127668062107488.color) {
+        material_var_ball_id_127668062107488.color.set(color);
+    }
+}
+// Hook into Ball's update method if it exists
+if (var_var_ball_id_127668062107488.update) {
+    const originalUpdate_var_ball_id_127668062107488 = var_var_ball_id_127668062107488.update.bind(var_var_ball_id_127668062107488);
+    var_var_ball_id_127668062107488.update = function(time) {
+        originalUpdate_var_ball_id_127668062107488(time);
+        updateColor_var_ball_id_127668062107488(time);
+    };
+} else {
+    // Store update function for animation loop
+    if (!window.uaibotColorUpdaters) window.uaibotColorUpdaters = [];
+    window.uaibotColorUpdaters.push(updateColor_var_ball_id_127668062107488);
+}
+sceneElements.push(var_var_ball_id_127668062107488);
+
+//BEGIN DECLARATION OF THE BALL 'var_ball_id_127668062107632'
+
+const material_var_ball_id_127668062107632 = new MeshPhysicalMaterial({
+opacity: 1,
+transparent: false,
+aoMapIntensity: 1,
+bumpScale: 1,
+color: "purple",
+emissive: "black",
+emissiveIntensity: 1,
+envMapIntensity: 1,
+flatShading: false,
+lightMapIntensity: 1,
+metalness: 0,
+normalScale: new Vector2(1,1),
+refractionRatio: 0.98,
+roughness: 1,
+clearcoat: 0,
+clearcoatNormalScale: new Vector2(1,1),
+clearcoatRoughness: 0,
+ior: 1.5,
+reflectivity: 0.5,
+sheen: 0,
+sheenRoughness: 1,
+sheenColor: "white",
+specularIntensity: 0,
+specularColor: "white",
+transmission: 0,
+});
+
+
+const var_var_ball_id_127668062107632 = new Ball(0.33812817727176214,[[0, 1.0, 0.0, 0.0, -1.6011, 0.0, 1.0, 0.0, -1.7626, 0.0, 0.0, 1.0, -1.6842, 0, 0, 0, 1]], material_var_ball_id_127668062107632);
+// Color animation for var_ball_id_127668062107632
+const colorFrames_var_ball_id_127668062107632 = [[0, 'purple']];
+// Function to update color based on time
+function updateColor_var_ball_id_127668062107632(time) {
+    if (colorFrames_var_ball_id_127668062107632.length === 0) return;
+    // Find the appropriate color frame
+    let color = colorFrames_var_ball_id_127668062107632[0][1];
+    for (let i = 0; i < colorFrames_var_ball_id_127668062107632.length; i++) {
+        if (time >= colorFrames_var_ball_id_127668062107632[i][0]) {
+            color = colorFrames_var_ball_id_127668062107632[i][1];
+        } else {
+            break;
+        }
+    }
+    // Update material color directly
+    if (material_var_ball_id_127668062107632 && material_var_ball_id_127668062107632.color) {
+        material_var_ball_id_127668062107632.color.set(color);
+    }
+}
+// Hook into Ball's update method if it exists
+if (var_var_ball_id_127668062107632.update) {
+    const originalUpdate_var_ball_id_127668062107632 = var_var_ball_id_127668062107632.update.bind(var_var_ball_id_127668062107632);
+    var_var_ball_id_127668062107632.update = function(time) {
+        originalUpdate_var_ball_id_127668062107632(time);
+        updateColor_var_ball_id_127668062107632(time);
+    };
+} else {
+    // Store update function for animation loop
+    if (!window.uaibotColorUpdaters) window.uaibotColorUpdaters = [];
+    window.uaibotColorUpdaters.push(updateColor_var_ball_id_127668062107632);
+}
+sceneElements.push(var_var_ball_id_127668062107632);
+
+//BEGIN DECLARATION OF THE BALL 'var_ball_id_127668062107776'
+
+const material_var_ball_id_127668062107776 = new MeshPhysicalMaterial({
+opacity: 1,
+transparent: false,
+aoMapIntensity: 1,
+bumpScale: 1,
+color: "purple",
+emissive: "black",
+emissiveIntensity: 1,
+envMapIntensity: 1,
+flatShading: false,
+lightMapIntensity: 1,
+metalness: 0,
+normalScale: new Vector2(1,1),
+refractionRatio: 0.98,
+roughness: 1,
+clearcoat: 0,
+clearcoatNormalScale: new Vector2(1,1),
+clearcoatRoughness: 0,
+ior: 1.5,
+reflectivity: 0.5,
+sheen: 0,
+sheenRoughness: 1,
+sheenColor: "white",
+specularIntensity: 0,
+specularColor: "white",
+transmission: 0,
+});
+
+
+const var_var_ball_id_127668062107776 = new Ball(0.2909106525531223,[[0, 1.0, 0.0, 0.0, 1.9923, 0.0, 1.0, 0.0, 1.2046, 0.0, 0.0, 1.0, 0.1553, 0, 0, 0, 1]], material_var_ball_id_127668062107776);
+// Color animation for var_ball_id_127668062107776
+const colorFrames_var_ball_id_127668062107776 = [[0, 'purple']];
+// Function to update color based on time
+function updateColor_var_ball_id_127668062107776(time) {
+    if (colorFrames_var_ball_id_127668062107776.length === 0) return;
+    // Find the appropriate color frame
+    let color = colorFrames_var_ball_id_127668062107776[0][1];
+    for (let i = 0; i < colorFrames_var_ball_id_127668062107776.length; i++) {
+        if (time >= colorFrames_var_ball_id_127668062107776[i][0]) {
+            color = colorFrames_var_ball_id_127668062107776[i][1];
+        } else {
+            break;
+        }
+    }
+    // Update material color directly
+    if (material_var_ball_id_127668062107776 && material_var_ball_id_127668062107776.color) {
+        material_var_ball_id_127668062107776.color.set(color);
+    }
+}
+// Hook into Ball's update method if it exists
+if (var_var_ball_id_127668062107776.update) {
+    const originalUpdate_var_ball_id_127668062107776 = var_var_ball_id_127668062107776.update.bind(var_var_ball_id_127668062107776);
+    var_var_ball_id_127668062107776.update = function(time) {
+        originalUpdate_var_ball_id_127668062107776(time);
+        updateColor_var_ball_id_127668062107776(time);
+    };
+} else {
+    // Store update function for animation loop
+    if (!window.uaibotColorUpdaters) window.uaibotColorUpdaters = [];
+    window.uaibotColorUpdaters.push(updateColor_var_ball_id_127668062107776);
+}
+sceneElements.push(var_var_ball_id_127668062107776);
+
+//BEGIN DECLARATION OF THE BALL 'var_ball_id_127668062107920'
+
+const material_var_ball_id_127668062107920 = new MeshPhysicalMaterial({
+opacity: 1,
+transparent: false,
+aoMapIntensity: 1,
+bumpScale: 1,
+color: "purple",
+emissive: "black",
+emissiveIntensity: 1,
+envMapIntensity: 1,
+flatShading: false,
+lightMapIntensity: 1,
+metalness: 0,
+normalScale: new Vector2(1,1),
+refractionRatio: 0.98,
+roughness: 1,
+clearcoat: 0,
+clearcoatNormalScale: new Vector2(1,1),
+clearcoatRoughness: 0,
+ior: 1.5,
+reflectivity: 0.5,
+sheen: 0,
+sheenRoughness: 1,
+sheenColor: "white",
+specularIntensity: 0,
+specularColor: "white",
+transmission: 0,
+});
+
+
+const var_var_ball_id_127668062107920 = new Ball(0.7841230971536872,[[0, 1.0, 0.0, 0.0, 0.2601, 0.0, 1.0, 0.0, 1.7634, 0.0, 0.0, 1.0, -0.6322, 0, 0, 0, 1]], material_var_ball_id_127668062107920);
+// Color animation for var_ball_id_127668062107920
+const colorFrames_var_ball_id_127668062107920 = [[0, 'purple']];
+// Function to update color based on time
+function updateColor_var_ball_id_127668062107920(time) {
+    if (colorFrames_var_ball_id_127668062107920.length === 0) return;
+    // Find the appropriate color frame
+    let color = colorFrames_var_ball_id_127668062107920[0][1];
+    for (let i = 0; i < colorFrames_var_ball_id_127668062107920.length; i++) {
+        if (time >= colorFrames_var_ball_id_127668062107920[i][0]) {
+            color = colorFrames_var_ball_id_127668062107920[i][1];
+        } else {
+            break;
+        }
+    }
+    // Update material color directly
+    if (material_var_ball_id_127668062107920 && material_var_ball_id_127668062107920.color) {
+        material_var_ball_id_127668062107920.color.set(color);
+    }
+}
+// Hook into Ball's update method if it exists
+if (var_var_ball_id_127668062107920.update) {
+    const originalUpdate_var_ball_id_127668062107920 = var_var_ball_id_127668062107920.update.bind(var_var_ball_id_127668062107920);
+    var_var_ball_id_127668062107920.update = function(time) {
+        originalUpdate_var_ball_id_127668062107920(time);
+        updateColor_var_ball_id_127668062107920(time);
+    };
+} else {
+    // Store update function for animation loop
+    if (!window.uaibotColorUpdaters) window.uaibotColorUpdaters = [];
+    window.uaibotColorUpdaters.push(updateColor_var_ball_id_127668062107920);
+}
+sceneElements.push(var_var_ball_id_127668062107920);
+
+//BEGIN DECLARATION OF THE BALL 'var_ball_id_127668062108256'
+
+const material_var_ball_id_127668062108256 = new MeshPhysicalMaterial({
+opacity: 1,
+transparent: false,
+aoMapIntensity: 1,
+bumpScale: 1,
+color: "purple",
+emissive: "black",
+emissiveIntensity: 1,
+envMapIntensity: 1,
+flatShading: false,
+lightMapIntensity: 1,
+metalness: 0,
+normalScale: new Vector2(1,1),
+refractionRatio: 0.98,
+roughness: 1,
+clearcoat: 0,
+clearcoatNormalScale: new Vector2(1,1),
+clearcoatRoughness: 0,
+ior: 1.5,
+reflectivity: 0.5,
+sheen: 0,
+sheenRoughness: 1,
+sheenColor: "white",
+specularIntensity: 0,
+specularColor: "white",
+transmission: 0,
+});
+
+
+const var_var_ball_id_127668062108256 = new Ball(0.3182286114646889,[[0, 1.0, 0.0, 0.0, -0.0861, 0.0, 1.0, 0.0, -0.5763, 0.0, 0.0, 1.0, 1.3732, 0, 0, 0, 1]], material_var_ball_id_127668062108256);
+// Color animation for var_ball_id_127668062108256
+const colorFrames_var_ball_id_127668062108256 = [[0, 'purple']];
+// Function to update color based on time
+function updateColor_var_ball_id_127668062108256(time) {
+    if (colorFrames_var_ball_id_127668062108256.length === 0) return;
+    // Find the appropriate color frame
+    let color = colorFrames_var_ball_id_127668062108256[0][1];
+    for (let i = 0; i < colorFrames_var_ball_id_127668062108256.length; i++) {
+        if (time >= colorFrames_var_ball_id_127668062108256[i][0]) {
+            color = colorFrames_var_ball_id_127668062108256[i][1];
+        } else {
+            break;
+        }
+    }
+    // Update material color directly
+    if (material_var_ball_id_127668062108256 && material_var_ball_id_127668062108256.color) {
+        material_var_ball_id_127668062108256.color.set(color);
+    }
+}
+// Hook into Ball's update method if it exists
+if (var_var_ball_id_127668062108256.update) {
+    const originalUpdate_var_ball_id_127668062108256 = var_var_ball_id_127668062108256.update.bind(var_var_ball_id_127668062108256);
+    var_var_ball_id_127668062108256.update = function(time) {
+        originalUpdate_var_ball_id_127668062108256(time);
+        updateColor_var_ball_id_127668062108256(time);
+    };
+} else {
+    // Store update function for animation loop
+    if (!window.uaibotColorUpdaters) window.uaibotColorUpdaters = [];
+    window.uaibotColorUpdaters.push(updateColor_var_ball_id_127668062108256);
+}
+sceneElements.push(var_var_ball_id_127668062108256);
+
+//BEGIN DECLARATION OF THE BALL 'var_ball_id_127668062108400'
+
+const material_var_ball_id_127668062108400 = new MeshPhysicalMaterial({
+opacity: 1,
+transparent: false,
+aoMapIntensity: 1,
+bumpScale: 1,
+color: "purple",
+emissive: "black",
+emissiveIntensity: 1,
+envMapIntensity: 1,
+flatShading: false,
+lightMapIntensity: 1,
+metalness: 0,
+normalScale: new Vector2(1,1),
+refractionRatio: 0.98,
+roughness: 1,
+clearcoat: 0,
+clearcoatNormalScale: new Vector2(1,1),
+clearcoatRoughness: 0,
+ior: 1.5,
+reflectivity: 0.5,
+sheen: 0,
+sheenRoughness: 1,
+sheenColor: "white",
+specularIntensity: 0,
+specularColor: "white",
+transmission: 0,
+});
+
+
+const var_var_ball_id_127668062108400 = new Ball(0.4017059947673969,[[0, 1.0, 0.0, 0.0, 1.5715, 0.0, 1.0, 0.0, -1.1565, 0.0, 0.0, 1.0, -0.4788, 0, 0, 0, 1]], material_var_ball_id_127668062108400);
+// Color animation for var_ball_id_127668062108400
+const colorFrames_var_ball_id_127668062108400 = [[0, 'purple']];
+// Function to update color based on time
+function updateColor_var_ball_id_127668062108400(time) {
+    if (colorFrames_var_ball_id_127668062108400.length === 0) return;
+    // Find the appropriate color frame
+    let color = colorFrames_var_ball_id_127668062108400[0][1];
+    for (let i = 0; i < colorFrames_var_ball_id_127668062108400.length; i++) {
+        if (time >= colorFrames_var_ball_id_127668062108400[i][0]) {
+            color = colorFrames_var_ball_id_127668062108400[i][1];
+        } else {
+            break;
+        }
+    }
+    // Update material color directly
+    if (material_var_ball_id_127668062108400 && material_var_ball_id_127668062108400.color) {
+        material_var_ball_id_127668062108400.color.set(color);
+    }
+}
+// Hook into Ball's update method if it exists
+if (var_var_ball_id_127668062108400.update) {
+    const originalUpdate_var_ball_id_127668062108400 = var_var_ball_id_127668062108400.update.bind(var_var_ball_id_127668062108400);
+    var_var_ball_id_127668062108400.update = function(time) {
+        originalUpdate_var_ball_id_127668062108400(time);
+        updateColor_var_ball_id_127668062108400(time);
+    };
+} else {
+    // Store update function for animation loop
+    if (!window.uaibotColorUpdaters) window.uaibotColorUpdaters = [];
+    window.uaibotColorUpdaters.push(updateColor_var_ball_id_127668062108400);
+}
+sceneElements.push(var_var_ball_id_127668062108400);
+
+//BEGIN DECLARATION OF THE BALL 'var_ball_id_127668062108544'
+
+const material_var_ball_id_127668062108544 = new MeshPhysicalMaterial({
+opacity: 1,
+transparent: false,
+aoMapIntensity: 1,
+bumpScale: 1,
+color: "purple",
+emissive: "black",
+emissiveIntensity: 1,
+envMapIntensity: 1,
+flatShading: false,
+lightMapIntensity: 1,
+metalness: 0,
+normalScale: new Vector2(1,1),
+refractionRatio: 0.98,
+roughness: 1,
+clearcoat: 0,
+clearcoatNormalScale: new Vector2(1,1),
+clearcoatRoughness: 0,
+ior: 1.5,
+reflectivity: 0.5,
+sheen: 0,
+sheenRoughness: 1,
+sheenColor: "white",
+specularIntensity: 0,
+specularColor: "white",
+transmission: 0,
+});
+
+
+const var_var_ball_id_127668062108544 = new Ball(0.38354732449118123,[[0, 1.0, 0.0, 0.0, -1.2728, 0.0, 1.0, 0.0, -0.6845, 0.0, 0.0, 1.0, 1.5805, 0, 0, 0, 1]], material_var_ball_id_127668062108544);
+// Color animation for var_ball_id_127668062108544
+const colorFrames_var_ball_id_127668062108544 = [[0, 'purple']];
+// Function to update color based on time
+function updateColor_var_ball_id_127668062108544(time) {
+    if (colorFrames_var_ball_id_127668062108544.length === 0) return;
+    // Find the appropriate color frame
+    let color = colorFrames_var_ball_id_127668062108544[0][1];
+    for (let i = 0; i < colorFrames_var_ball_id_127668062108544.length; i++) {
+        if (time >= colorFrames_var_ball_id_127668062108544[i][0]) {
+            color = colorFrames_var_ball_id_127668062108544[i][1];
+        } else {
+            break;
+        }
+    }
+    // Update material color directly
+    if (material_var_ball_id_127668062108544 && material_var_ball_id_127668062108544.color) {
+        material_var_ball_id_127668062108544.color.set(color);
+    }
+}
+// Hook into Ball's update method if it exists
+if (var_var_ball_id_127668062108544.update) {
+    const originalUpdate_var_ball_id_127668062108544 = var_var_ball_id_127668062108544.update.bind(var_var_ball_id_127668062108544);
+    var_var_ball_id_127668062108544.update = function(time) {
+        originalUpdate_var_ball_id_127668062108544(time);
+        updateColor_var_ball_id_127668062108544(time);
+    };
+} else {
+    // Store update function for animation loop
+    if (!window.uaibotColorUpdaters) window.uaibotColorUpdaters = [];
+    window.uaibotColorUpdaters.push(updateColor_var_ball_id_127668062108544);
+}
+sceneElements.push(var_var_ball_id_127668062108544);
+//USER INPUT GOES HERE
+
+
+
+// add stuff to the scene
+for (let i = 0; i < sceneElements.length; i++) {
+	if (typeof sceneElements[i].shape != "undefined") {
+		scene.add(sceneElements[i].shape);
+	}
+}
+
+
+
+//Add LDR to the scene
+if (!(ldrUrls.length == 0)) {
+
+	const pmremGenerator = new PMREMGenerator(renderer);
+	var ldrCubeMap = new CubeTextureLoader().load(ldrUrls, function () {
+
+	    ldrCubeMap.encoding = sRGBEncoding;
+	    const ldrCubeRenderTarget = pmremGenerator.fromCubemap(ldrCubeMap);
+	    const envMap = ldrCubeRenderTarget.texture;
+
+	    scene.environment = envMap;
+
+	    for (let i = 0; i < sceneElements.length; i++) {
+		const sceneObj = sceneElements[i];
+
+		sceneObj.setEnvMap(envMap);
+
+	    }
+
+	    scene.background = ldrCubeMap;
+	});
+
+}
+
+
+
+//Add gui
+var gui = new GUI({ autoPlace: false, width: "800px" });
+var customContainer = document.getElementById('canvas_container_' + sceneID);
+customContainer.appendChild(gui.domElement);
+
+var automaticPlay = true;
+var manualTime = 0;
+
+gui.add({ Progress: 0 }, "Progress", 0, maxTime, 0.01).onChange(function (value) {
+	automaticPlay = false;
+	manualTime = value + 0.0001;
+	btn.innerHTML = "&#9654";
+})
+customContainer.getElementsByClassName('c')[0].style.width = (canvas.clientWidth - 20).toString() + 'px';
+customContainer.getElementsByClassName('dg main')[0].style.width = canvas.clientWidth.toString() + 'px';
+customContainer.getElementsByClassName('dg main')[0].style.right = '0px'; //0
+customContainer.getElementsByClassName('dg main')[0].style.top = '0px'; //550
+customContainer.getElementsByClassName('dg main')[0].style.position = 'relative'; //absolute
+customContainer.getElementsByClassName('close-button close-bottom')[0].style.height = '0px';
+customContainer.getElementsByClassName('close-button close-bottom')[0].innerHTML = '';
+customContainer.getElementsByClassName('property-name')[0].innerHTML = '';
+customContainer.getElementsByClassName('slider')[0].style.width = (canvas.clientWidth - 100).toString() + 'px'
+customContainer.getElementsByClassName('slider-fg')[0].style.backgroundColor = '#19bd39'
+customContainer.querySelectorAll("input[type=text]")[0].style.width = '50px';
+customContainer.querySelectorAll("input[type=text]")[0].style.color = '#19bd39';
+
+customContainer.getElementsByClassName('dg')[0].style.borderLeft = '4px solid #1a1a1a'
+customContainer.getElementsByClassName('cr')[0].style.borderLeft = '4px solid #1a1a1a'
+customContainer.getElementsByClassName('number')[0].style.borderLeft = '4px solid #1a1a1a'
+var recoveryCurrentTime = false;
+
+let btn = document.createElement("button");
+btn.style.backgroundColor = "#1a1a1a";
+btn.style.color = "#19bd39";
+btn.style.border = "none";
+btn.style.height = "28px";
+btn.style.width = "28px";
+btn.innerHTML = "||";
+btn.onclick = function () {
+
+	automaticPlay = !automaticPlay;
+
+	if (automaticPlay) {
+		btn.innerHTML = "||";
+		recoveryCurrentTime = true;
+	}
+	else {
+		manualTime = parseFloat(customContainer.querySelectorAll("input[type=text]")[0].value) + 0.0001;
+		btn.innerHTML = "&#9654";
+	}
+
+};
+customContainer.getElementsByClassName('c')[0].style.verticalAlign = "middle"
+customContainer.getElementsByClassName('c')[0].appendChild(btn);
+//------------------------------------------------------------
+
+//Wait until all objects loaded
+
+var loadedAll = false;
+var sceneDrawn = false;
+
+
+//Get starting ms
+var startMs = elapsedMs()
+
+//Initialize
+var heightScene;
+var heightBar;
+
+document.getElementsByClassName('controller')[0].appendChild(customContainer.getElementsByClassName('dg main')[0])
+document.getElementsByClassName('controller')[0].style.opacity = "0"
+
+heightScene = document.getElementById('scene_' + sceneID).style.height;
+document.getElementById('scene_' + sceneID).style.visibility = 'hidden';
+document.getElementById('scene_' + sceneID).style.height = '0px';
+
+heightBar = customContainer.getElementsByClassName('dg main')[0].style.height;
+customContainer.getElementsByClassName('dg main')[0].style.visibility = 'hidden';
+customContainer.getElementsByClassName('dg main')[0].style.height = '0px';
+
+
+//-------------------- THE ANIMATION LOOP -------------------
+
+
+
+renderer.setAnimationLoop(() => {
+
+
+	loadedAll = true;
+
+	for (let i = 0; i < sceneElements.length; i++) {
+		loadedAll = loadedAll && sceneElements[i].hasLoaded();
+	}
+
+	if (!loadedAll) {
+		startMs = elapsedMs();
+	}
+	else {
+		//document.getElementById('canvas_container').style.visibility = 'visible';
+		if ((elapsedMs() - startMs > delay) && !sceneDrawn) {
+			document.getElementById('scene_' + sceneID).style.visibility = 'visible';
+			document.getElementById('canvas_container_' + sceneID).getElementsByClassName('dg main')[0].style.visibility = 'visible';
+			document.getElementById('scene_' + sceneID).style.height = heightScene;
+			document.getElementById('canvas_container_' + sceneID).getElementsByClassName('dg main')[0].style.height = heightBar;
+			document.getElementById('loading_screen_' + sceneID).remove();
+			sceneDrawn = true;
+		}
+	}
+
+
+	//MAGIC HAPPENS HERE!!!
+	if (loadedAll && automaticPlay) {
+
+		var currentSeconds;
+		if (!recoveryCurrentTime) {
+
+			for (let i = 0; i < sceneElements.length; i++) {
+				sceneElements[i].nextFrame();
+				sceneElements[i].showFrame();
+			}
+
+			currentSeconds = Math.min(0.001 * Math.max(elapsedMs() - startMs - delay, 0), maxTime);
+
+			var percentage = (100 * currentSeconds / (0.000001 + maxTime)).toString();
+			customContainer.getElementsByClassName('slider-fg')[0].style.width = percentage + "%";
+			customContainer.querySelectorAll("input[type=text]")[0].value = Math.round(100 * currentSeconds) / 100;
+		}
+		else {
+			currentSeconds = customContainer.querySelectorAll("input[type=text]")[0].value;
+			startMs = elapsedMs() - delay - 1000 * currentSeconds;
+			recoveryCurrentTime = false;
+		}
+
+	}
+	if (loadedAll && !automaticPlay) {
+		for (let i = 0; i < sceneElements.length; i++) {
+			sceneElements[i].setFrameTime(manualTime);
+			sceneElements[i].showFrame();
+		}
+	}
+
+	renderer.render(scene, camera);
+});
+//------------------------------------------------------------
+
+
+// window.addEventListener('resize', onWindowResize, false);
+
+// function onWindowResize() {
+    
+//     const canvas = document.querySelector('canvas');
+//     const widthAttr = canvas.getAttribute('width');
+//     const heightAttr = canvas.getAttribute('height');
+//     const factor = widthAttr/heightAttr
+// 	const canvas_div =  document.getElementById('canvas_container_'+sceneID)
+    
+// 	if(factor>1)
+// 	{
+// 		const width = Math.round(0.9*factor*window.innerHeight);
+// 		const height = 0.9*window.innerHeight;
+		
+// 		canvas_div.style.width = width;
+//     	canvas_div.style.height = height;
+			
+// 		camera.aspect = width / height;
+// 		camera.updateProjectionMatrix();
+// 		renderer.setSize(width, height);
+// 	}
+// 	else
+// 	{
+// 		const width = 0.9*window.innerWidth;
+// 		const height =  Math.round((0.9/factor)*window.innerWidth);
+		
+// 		canvas_div.style.width = width;
+//     	canvas_div.style.height = height;
+			
+// 		camera.aspect = width / height;
+// 		camera.updateProjectionMatrix();
+// 		renderer.setSize(width, height);
+// 	}
+
+
+//     // ---- GUI WIDTH FIX ----
+//     const canvasWidth = renderer.domElement.clientWidth;
+//     const customContainer = document.getElementById('canvas_container_' + sceneID);
+
+//     if (customContainer) {
+//         try {
+//             customContainer.getElementsByClassName('c')[0].style.width = (canvasWidth - 20) + 'px';
+//             customContainer.getElementsByClassName('dg main')[0].style.width = canvasWidth + 'px';
+//             customContainer.getElementsByClassName('slider')[0].style.width = (canvasWidth - 100) + 'px';
+//         } catch (e) {
+//             console.warn('GUI resize skipped:', e);
+//         }
+//     }
+// }
+ </script><style>
+html, body {
+margin: 0; 
+padding: 0; 
+overflow: hidden; 
+width: 100%; 
+height: 100%; 
+}
+canvas {
+display: block;
+width: 100%; 
+height: 100%;
+}
+</style>
+
+ </body>
+ </html>
