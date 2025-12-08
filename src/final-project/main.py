@@ -11,28 +11,31 @@ from DroneFormation import DroneFormation
 class DroneShow():
     def __init__(self):
         # All params
+
+        # Control params
         self.param_k = 4.0 #1.4
         self.param_k_min = 4.0 #1.4
         self.param_k_max = 10*self.param_k_min #1.4
         self.param_eta = 0.4 #0.6
         self.param_eta_v = 0.1
-        self.param_v_max = 4.0 #0.4
-        self.param_a_max = 5.0 #0.5
+        self.param_v_max = 40.0 #0.4
+        self.param_a_max = 50.0 #0.5
         self.param_radius = 0.1 # drone sphere radius,for obs avoidance
-        self.mov_obs_radius = 0.5 # radius of moving obstacle
-        self.param_height = 0.35
         self.param_n_robots = 10
         self.param_dist_interm = 0.3
         self.param_dist_final = 0.05
         self.param_h_dist = 1e-6
         self.param_eps_dist = 1e-6
-        self.param_delta = 0.1 # safety margin
+        self.param_delta = 0.5 # safety margin
         self.param_min_dist_drone_tg = 0.25 # minimum distance between drone and target point
         self.param_min_dist_tg = 0.25 # minimum distance between target points
         
+        # Stage params
+        self.stage_size = 5.0
         self.param_t_max = 800
         self.param_max_pc_points_per_frame = 100
 
+        # Target points params
         self.param_xmin = -100
         self.param_xmax = 100
         self.param_ymin = -100
@@ -40,7 +43,96 @@ class DroneShow():
         self.param_zmin = -100.0
         self.param_zmax = 100.0
         self.dt = 0.02 # 0.02
-        self.drone_sphere_opacity = 0.7
+        self.drone_sphere_opacity = 0.7        
+
+        # Drone show params
+        self.drone_show_z_height = 5.0
+
+        # Dynamic Obstacle params
+        self.mov_obs_radius = 0.5 # radius of moving obstacle
+        self.mov_obs2_radius = 0.5 # radius of moving obstacle
+        # self.mov_obs_max_obs_vel = 10.0 # m/s
+        # self.mov_obs_max_obs_acc = 10.0 # m/s²
+
+        self.obs_pos_lims = [
+            [-self.stage_size, self.stage_size],
+            [-self.stage_size, self.stage_size],
+            [self.drone_show_z_height - 1.0, self.drone_show_z_height + 1.0],
+        ]
+        self.mov_obs_amplitude = [self.stage_size, self.stage_size, self.stage_size*0.2]
+        ###################################################################
+        # Attention ! If any 'w' is changed for position, their derivatives
+        # (vel, acc) have to be changed as well !
+        ###################################################################
+        self.mov_obs_speed_multiplier = 0.1 # speed multiplier for oscilating movements
+        self.mov_obs_w = (np.deg2rad(np.array([5, 30, 60]))*2*np.pi*self.mov_obs_speed_multiplier).tolist() # w for oscilating movements
+        self.mov1_obs_props = {
+            'position': 
+                lambda t, 
+                    A=self.mov_obs_amplitude,
+                    w=self.mov_obs_w:
+                    np.matrix([
+                        A[0]*np.cos(w[0]*t), 
+                        A[1]*np.cos(w[1]*t), 
+                        A[2]*np.cos(w[2]*t) + self.drone_show_z_height
+                    ]).reshape(3,1),
+            'velocity': 
+                lambda t, 
+                    A=self.mov_obs_amplitude,
+                    w=self.mov_obs_w:
+                    np.matrix([
+                        -w[0]*A[0]*np.sin(w[0]*t), 
+                        -w[1]*A[1]*np.sin(w[1]*t), 
+                        -w[2]*A[2]*np.sin(w[2]*t)
+                    ]).reshape(3,1),
+            
+            'acceleration': 
+                lambda t, 
+                    A=self.mov_obs_amplitude,
+                    w=self.mov_obs_w:
+                    np.matrix([
+                        -w[0]**2*A[0]*np.cos(w[0]*t), 
+                        -w[1]**2*A[1]*np.cos(w[1]*t), 
+                        -w[2]**2*A[2]*np.cos(w[2]*t)
+                    ]).reshape(3,1),
+            
+            'radius': self.mov_obs_radius,
+        }
+
+        self.mov_obs2_props = {
+            'position': 
+                lambda t, 
+                    A=self.mov_obs_amplitude,
+                    w=self.mov_obs_w:
+                    np.matrix([
+                        A[0]*np.sin(w[0]*t), 
+                        A[1]*np.sin(w[1]*t), 
+                        A[2]*np.sin(w[2]*t) + self.drone_show_z_height
+                    ]).reshape(3,1),
+            'velocity': 
+                lambda t, 
+                    A=self.mov_obs_amplitude,
+                    w=self.mov_obs_w:
+                    np.matrix([
+                        w[0]*A[0]*np.cos(w[0]*t), 
+                        w[1]*A[1]*np.cos(w[1]*t), 
+                        w[2]*A[2]*np.cos(w[2]*t)
+                    ]).reshape(3,1),
+            
+            'acceleration': 
+                lambda t, 
+                    A=self.mov_obs_amplitude,
+                    w=self.mov_obs_w:
+                    np.matrix([
+                        -w[0]**2*A[0]*np.sin(w[0]*t), 
+                        -w[1]**2*A[1]*np.sin(w[1]*t), 
+                        -w[2]**2*A[2]*np.sin(w[2]*t)
+                    ]).reshape(3,1),
+            
+            'radius': self.mov_obs2_radius,
+        }
+
+        self.mov_obs_props = [self.mov1_obs_props, self.mov_obs2_props]
 
         self.param_dict = dict(
             param_k = self.param_k,
@@ -49,7 +141,6 @@ class DroneShow():
             param_v_max = self.param_v_max,
             param_a_max = self.param_a_max,
             param_radius = self.param_radius,
-            param_height = self.param_height,
             param_n_robots = self.param_n_robots,
             param_dist_interm = self.param_dist_interm,
             param_dist_final = self.param_dist_final,
@@ -78,7 +169,6 @@ class DroneShow():
         self.hist_t = []
         self.hist_dist_agent = []
         self.hist_dist_obs = []
-        self.stage_size = 5.0
         self.setup()
 
     def setup(self):
@@ -112,6 +202,7 @@ class DroneShow():
         # self.sim.add(self.all_tg_box)
         self.sim.add(self.master_path_pc)
         self.sim.add(self.mov_obs)
+        self.sim.add(self.mov_obs2)
         self.sim.set_parameters(pixel_ratio=0.9)
         # self.sim.set_parameters(camera_start_pose=[ 4.2967, 2.4381, 3.5080, 3.6016, 2.0036, 2.9353, 1.0000])
         self.sim.set_parameters(camera_start_pose=[ 0.0, -10, 15.0, 0.0, 0.0, 0.0, 1.0000])
@@ -193,13 +284,12 @@ class DroneShow():
         num_points_per_stage = 100
         theta = np.linspace(0, 2 * np.pi, num_points_per_stage) # using 1 just bc radius is 0
         radius = 5.0
-        z_height = 5.0
-        center = [0, 0, z_height]
+        center = [0, 0, self.drone_show_z_height]
         self.master_path = []
 
         ########### Get out of the cage #################
         print("PHASE 0: Get out of the cage")
-        self.master_path.append(np.matrix([0, 0, z_height]).T) # list of 3 x 1 matrices
+        self.master_path.append(np.matrix([0, 0, self.drone_show_z_height]).T) # list of 3 x 1 matrices
 
         for i, pos in enumerate(self.master_path):
             normal = [0,0,1]
@@ -219,8 +309,8 @@ class DroneShow():
         for t in theta:
             x = center[0] + radius * np.cos(t)
             y = center[1] + radius * np.sin(t)
-            # print("x = {}, y = {}, z_height = {} for theta = {}".format(x, y, z_height, t))
-            self.master_path.append(np.matrix([x, y, z_height]).T) # list of 3 x 1 matrices
+            # print("x = {}, y = {}, self.drone_show_z_height = {} for theta = {}".format(x, y, self.drone_show_z_height, t))
+            self.master_path.append(np.matrix([x, y, self.drone_show_z_height]).T) # list of 3 x 1 matrices
 
         # print("self.master_path = {}".format(self.master_path))
         # self.master_path = np.hstack(self.master_path).T # N x 3
@@ -488,10 +578,12 @@ class DroneShow():
         self.all_obstacles.append(ub.Box(htm=ub.Utils.rotz(np.pi/2)*ub.Utils.trn([0.0,self.stage_size/2,wall_height]),width=2*self.stage_size,depth=wallz_depth,height=wall_thickness,opacity=obs_opacity,color=wallz_color)) # wallz4
         self.all_obstacles.append(ub.Box(htm=ub.Utils.rotz(np.pi/2)*ub.Utils.trn([0.0,self.stage_size,wall_height]),width=2*self.stage_size,depth=wallz_depth,height=wall_thickness,opacity=obs_opacity,color=wallz_color)) # wallz5
 
+        # Dynamic Obstacle
         self.mov_obs = ub.Ball(color="red", radius=self.mov_obs_radius, opacity=0.9)
-        self.mov_obs_pos = np.array([0.0, 0.0, 5.0])
-        self.mov_obs_vel = np.array([1.0, 0.0, 0.0])
-        self.mov_obs_htm = ub.Utils.trn(self.mov_obs_pos)
+        self.mov_obs_htm = lambda t: ub.Utils.trn(self.mov1_obs_props['position'](t))
+
+        self.mov_obs2 = ub.Ball(color="purple", radius=self.mov_obs2_radius, opacity=0.9)
+        self.mov_obs2_htm = lambda t: ub.Utils.trn(self.mov_obs2_props['position'](t))
 
         # self.all_obstacles = [obs1, obs2, obs3, obs4, obs5, obs6, wallxp, wallxn, wallyp, wallyn]
 
@@ -523,6 +615,12 @@ class DroneShow():
             self.drones.append(new_drone)
 
     def run(self):
+        # Test only moving obs
+        # t = 0
+        # while t < self.param_t_max:
+        #     self.mov_obs.add_ani_frame(time = t, htm = self.mov_obs_htm(t))
+        #     t += self.dt
+        # return
     
         self.q = np.matrix(np.zeros((3*self.param_n_robots,1)))
         for i in range(self.param_n_robots):
@@ -532,25 +630,21 @@ class DroneShow():
             
         #Everyone starts stopped
         self.dotq = np.matrix(0*self.q)
-        self.hist_dotq = []
-        self.hist_ddotq = []
-        self.hist_t = []
-        self.hist_dist_agent = []
-        self.hist_dist_obs = []
+        # self.hist_dotq = []
+        # self.hist_ddotq = []
+        # self.hist_t = []
+        # self.hist_dist_agent = []
+        # self.hist_dist_obs = []
 
         self.init_index = [0 for i in range(self.param_n_robots)]
         self.current_tg = [self.path_points[i][0] for i in range(self.param_n_robots)]
-        # print("self.current_tg = {}".format(self.current_tg))
-        # print("self.current_tg[0] = {}".format(self.current_tg[0]))
-        # print("self.current_tg[0].shape = {}".format(self.current_tg[0].shape))
-        # print("type(self.current_tg[0]) = {}".format(type(self.current_tg[0])))
         self.finished = [False for i in range(self.param_n_robots)]
 
         # for i in range(self.param_n_robots):
         #     self.all_tg_box[i].add_ani_frame(0,htm=ub.Utils.trn(self.current_tg[i]))
 
-        self.mov_obs.add_ani_frame(0, htm=self.mov_obs_htm)
-
+        self.mov_obs.add_ani_frame(0, htm=self.mov_obs_htm(0)) # starting position
+        self.mov_obs2.add_ani_frame(0, htm=self.mov_obs2_htm(0)) # starting position
         cont = True 
 
         self.min_dist_agents = 1e6
@@ -572,7 +666,7 @@ class DroneShow():
             pc_idx = int(self.init_index[0])
             ##int(t/self.param_t_max*len(self.master_path))
             
-            self.ddotq, self.min_dist_agents_now, self.min_dist_obs_now = self.control.control_fun(self.q, self.dotq, self.current_tg, self.pc, self.mov_obs_pos, self.mov_obs_vel, self.mov_obs_radius)
+            self.ddotq, self.min_dist_agents_now, self.min_dist_obs_now = self.control.control_fun(t, self.q, self.dotq, self.current_tg, self.pc, self.mov_obs_props)
             
             self.min_dist_agents = min(self.min_dist_agents_now, self.min_dist_agents)
             self.min_dist_obs = min(self.min_dist_obs_now, self.min_dist_obs)
@@ -645,16 +739,6 @@ class DroneShow():
                         # print("Breaking the loop.")
                         break
 
-                    # self.init_index[j]+=1
-                    # print("Incrementing init_index[j] to {}".format(self.init_index[j]))
-                    # print("no_targets = {}".format(no_targets))
-                    # if self.init_index[j] == no_targets:
-                    #     self.init_index[j] = no_targets-1
-                    #     self.finished[j] = True
-                    #     print(f"Setting finished[{j}] to True")
-
-                    # self.current_tg[j] = self.path_points[j][self.init_index[j]]
-                    # self.all_tg_box[j].add_ani_frame(i*self.dt,htm=ub.Utils.trn(self.current_tg[j]))
                 else:
                     # print("Error not small enough")
                     pass
@@ -662,15 +746,6 @@ class DroneShow():
                 total_finished = total_finished and self.finished[j]
 
             # # Reset everyone
-            # self.reached_waypoint = [False for i in range(self.param_n_robots)]
-            
-            print(f"total_error = {total_error}")
-            print(f"prev_error = {prev_error}")
-
-            # print("finished = {}".format(self.finished))
-            # print("total_finished = {}".format(total_finished))
-            # print("t < self.param_t_max = {}".format(t < self.param_t_max))
-            # print("t < self.param_t_max and not total_finished = {}".format(t < self.param_t_max and not total_finished))
             cont = t < self.param_t_max and not total_finished
             i = i + 1
             iter_count += 1
@@ -678,17 +753,18 @@ class DroneShow():
             self.q += self.dotq*self.dt
             self.dotq += self.ddotq*self.dt
             
-            self.hist_dotq.append(np.matrix(self.dotq))
-            self.hist_ddotq.append(self.ddotq)
-            self.hist_t.append(t)
-            self.hist_dist_agent.append(self.min_dist_agents_now)
-            self.hist_dist_obs.append(self.min_dist_obs_now)
+            # self.hist_dotq.append(np.matrix(self.dotq))
+            # self.hist_ddotq.append(self.ddotq)
+            # self.hist_t.append(t)
+            # self.hist_dist_agent.append(self.min_dist_agents_now)
+            # self.hist_dist_obs.append(self.min_dist_obs_now)
 
             # Add ani frame for moving obstacle
-            self.mov_obs_htm *= ub.Utils.trn(self.mov_obs_vel*self.dt)
-            if abs(self.mov_obs_htm[0,3]) >= self.stage_size:
-                self.mov_obs_vel *= -1 # invert
-            self.mov_obs.add_ani_frame(time = i*self.dt, htm =self.mov_obs_htm)
+            self.mov_obs.add_ani_frame(time = i*self.dt, htm = self.mov_obs_htm(t))
+            self.mov_obs2.add_ani_frame(time = i*self.dt, htm = self.mov_obs2_htm(t))
+            # self.mov_obs_htm *= ub.Utils.trn(self.mov1_obs_props['velocity'](t)*self.dt)
+            # if abs(self.mov_obs_htm[0,3]) >= self.stage_size:
+            #     self.mov_obs_vel *= -1 # invert
 
             # Add ani frame for drones and PC
             for j in range(self.param_n_robots):
@@ -699,27 +775,30 @@ class DroneShow():
 
             # If error stops decreasing, kill program
             if (abs(total_error - prev_error)) <= 1e-5:
-                print(f"total_error - prev_error = {total_error - prev_error}")
+                # print(f"total_error - prev_error = {total_error - prev_error}")
                 total_error_count += 1
-                print(f"total_error_count = {total_error_count}")
+                # print(f"total_error_count = {total_error_count}")
                 if total_error_count > 100:
                     break
             else:
                 total_error_count = 0
-                print(f"total_error_count = {total_error_count}")
+                # print(f"total_error_count = {total_error_count}")
             
             prev_error = total_error
-            print(f"prev_error = {prev_error}")
+            # print(f"prev_error = {prev_error}")
     
     def save_simulation(self):
         self.sim.set_parameters(width=1500, height=1500, pixel_ratio=0.9)
         self.sim.save(os.getcwd(),"final")
+        print("Saved simulation to final.html")
 
 if __name__ == "__main__":
-    print("ATTENTION ! This is a complex script which takes A LOT of time to run.")
-    print("There is a final.html file provided with the full final result.")
-    print("You can view the simulation by opening the file in your browser.")
-    input("Press Enter if you really want to proceed or ctrl+c to exit.")
+    if len(sys.argv) == 1:
+        print("ATTENTION ! This is a complex script which takes A LOT of time to run.")
+        print("There is a final.html file provided with the full final result.")
+        print("You can view the simulation by opening the file in your browser.")
+        input("Press Enter if you really want to proceed or ctrl+c to exit.")
+    
     drone_show = DroneShow()
     drone_show.run()
     drone_show.save_simulation()
