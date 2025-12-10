@@ -18,15 +18,17 @@ class DroneShow():
         self.param_k_max = 10*self.param_k_min #1.4
         self.param_eta = 0.4 #0.6
         self.param_eta_v = 0.1
-        self.param_v_max = 40.0 #0.4
-        self.param_a_max = 50.0 #0.5
+        self.param_v_min = -40.0 # has to be negative
+        self.param_v_max = self.param_v_min*(-1) # 0.4
+        self.param_a_min = -50.0 # has to be negative
+        self.param_a_max = self.param_a_min*(-1)
         self.param_radius = 0.1 # drone sphere radius,for obs avoidance
         self.param_n_robots = 10
         self.param_dist_interm = 0.3
         self.param_dist_final = 0.05
         self.param_h_dist = 1e-6
         self.param_eps_dist = 1e-6
-        self.param_delta = 0.25 # safety margin
+        self.param_delta = 0.50 # safety margin
         self.param_min_dist_drone_tg = 0.25 # minimum distance between drone and target point
         self.param_min_dist_tg = 0.25 # minimum distance between target points
         
@@ -60,12 +62,12 @@ class DroneShow():
             [-self.stage_size, self.stage_size],
             [self.drone_show_z_height - 1.0, self.drone_show_z_height + 1.0],
         ]
-        self.mov_obs_amplitude = [self.stage_size, self.stage_size, self.stage_size*0.75]
+        self.mov_obs_amplitude = [self.stage_size, self.stage_size, self.stage_size*0.25]
         ###################################################################
         # Attention ! If any 'w' is changed for position, their derivatives
         # (vel, acc) have to be changed as well !
         ###################################################################
-        self.mov_obs_speed_multiplier = 0.01 # speed multiplier for oscilating movements
+        self.mov_obs_speed_multiplier = 0.05 # speed multiplier for oscilating movements
         self.mov_obs_w = (np.deg2rad(np.array([5, 30, 60]))*2*np.pi*self.mov_obs_speed_multiplier).tolist() # w for oscilating movements
         
         # Moving obstacle 1
@@ -173,13 +175,15 @@ class DroneShow():
             'radius': self.mov_obs3_radius,
         }
 
-        self.mov_obs_props = [self.mov1_obs_props, self.mov_obs2_props]#, self.mov_obs3_props]
+        self.mov_obs_props = [self.mov1_obs_props, self.mov_obs2_props, self.mov_obs3_props]
 
         self.param_dict = dict(
             param_k = self.param_k,
             param_eta = self.param_eta,
             param_eta_v = self.param_eta_v,
+            param_v_min = self.param_v_min,
             param_v_max = self.param_v_max,
+            param_a_min = self.param_a_min,
             param_a_max = self.param_a_max,
             param_radius = self.param_radius,
             param_n_robots = self.param_n_robots,
@@ -244,7 +248,7 @@ class DroneShow():
         self.sim.add(self.master_path_pc)
         self.sim.add(self.mov_obs)
         self.sim.add(self.mov_obs2)
-        # self.sim.add(self.mov_obs3)
+        self.sim.add(self.mov_obs3)
         self.sim.set_parameters(pixel_ratio=0.9)
         # self.sim.set_parameters(camera_start_pose=[ 4.2967, 2.4381, 3.5080, 3.6016, 2.0036, 2.9353, 1.0000])
         self.sim.set_parameters(camera_start_pose=[ 0.0, -10, 15.0, 0.0, 0.0, 0.0, 1.0000])
@@ -627,8 +631,8 @@ class DroneShow():
         self.mov_obs2 = ub.Ball(color="orange", radius=self.mov_obs2_radius, opacity=0.9)
         self.mov_obs2_htm = lambda t: ub.Utils.trn(self.mov_obs2_props['position'](t))
 
-        # self.mov_obs3 = ub.Ball(color="yellow", radius=self.mov_obs3_radius, opacity=0.9)
-        # self.mov_obs3_htm = lambda t: ub.Utils.trn(self.mov_obs3_props['position'](t))
+        self.mov_obs3 = ub.Ball(color="yellow", radius=self.mov_obs3_radius, opacity=0.9)
+        self.mov_obs3_htm = lambda t: ub.Utils.trn(self.mov_obs3_props['position'](t))
 
         # self.all_obstacles = [obs1, obs2, obs3, obs4, obs5, obs6, wallxp, wallxn, wallyp, wallyn]
 
@@ -690,17 +694,26 @@ class DroneShow():
 
         self.mov_obs.add_ani_frame(0, htm=self.mov_obs_htm(0)) # starting position
         self.mov_obs2.add_ani_frame(0, htm=self.mov_obs2_htm(0)) # starting position
-        # self.mov_obs3.add_ani_frame(0, htm=self.mov_obs3_htm(0)) # starting position
+        self.mov_obs3.add_ani_frame(0, htm=self.mov_obs3_htm(0)) # starting position
         cont = True 
 
         self.min_dist_agents = 1e6
         self.min_dist_obs = 1e6
+        
+        # Data storage for analysis
+        self.hist_min_dist_agents = []
+        self.hist_min_dist_obs = []
+        self.hist_time = []
+        self.hist_total_error_first_waypoint = []
+        self.hist_time_first_waypoint = []
+        self.first_waypoint_reached = False
         
         self.reached_waypoint = [False for i in range(self.param_n_robots)]
         need_to_break = True # indicates whether we need to brake the loop that iterates over 
         # all drones,
         # because we need to make sure all drones reach their waypoints so we can
         # start fresh on this loop, so every drone updates its own state
+        i = 0
         iter_count = 0
         total_error = 0
         prev_error = 0
@@ -717,6 +730,11 @@ class DroneShow():
             self.min_dist_agents = min(self.min_dist_agents_now, self.min_dist_agents)
             self.min_dist_obs = min(self.min_dist_obs_now, self.min_dist_obs)
             
+            # Store distance data
+            self.hist_min_dist_agents.append(self.min_dist_agents_now)
+            self.hist_min_dist_obs.append(self.min_dist_obs_now)
+            self.hist_time.append(t)
+            
             total_finished = True
             total_error = 0
             
@@ -725,6 +743,13 @@ class DroneShow():
                 qj = self.q[3*j:3*(j+1),:]
                 error = np.linalg.norm(qj-self.current_tg[j])
                 total_error += error
+            
+            # Store total error only for first waypoint (when all drones are at index 0)
+            if all(idx == 0 for idx in self.init_index) and not self.first_waypoint_reached:
+                self.hist_total_error_first_waypoint.append(total_error)
+                self.hist_time_first_waypoint.append(t)
+            elif any(idx > 0 for idx in self.init_index):
+                self.first_waypoint_reached = True
 
             # Build robot status output strings first
             robot_status_lines = []
@@ -791,6 +816,7 @@ class DroneShow():
 
             # Print Time line
             print("Time "+str(round(t,2))+"/"+str(self.param_t_max)+", min_dist_agent = "+str(round(self.min_dist_agents,2))+", min_dist_obs = "+str(round(self.min_dist_obs,2)))
+            print("Time "+str(round(t,2))+"/"+str(self.param_t_max)+", min_dist_agent_now = "+str(round(self.min_dist_agents_now,2))+", min_dist_obs_now = "+str(round(self.min_dist_obs_now,2)))
             
             # Print all robot statuses
             for status_line in robot_status_lines:
@@ -816,10 +842,8 @@ class DroneShow():
             # Add ani frame for moving obstacle
             self.mov_obs.add_ani_frame(time = i*self.dt, htm = self.mov_obs_htm(t))
             self.mov_obs2.add_ani_frame(time = i*self.dt, htm = self.mov_obs2_htm(t))
-            # self.mov_obs3.add_ani_frame(time = i*self.dt, htm = self.mov_obs3_htm(t))
-            # self.mov_obs_htm *= ub.Utils.trn(self.mov1_obs_props['velocity'](t)*self.dt)
-            # if abs(self.mov_obs_htm[0,3]) >= self.stage_size:
-            #     self.mov_obs_vel *= -1 # invert
+            self.mov_obs3.add_ani_frame(time = i*self.dt, htm = self.mov_obs3_htm(t))
+            
 
             # Add ani frame for drones and PC
             for j in range(self.param_n_robots):
@@ -846,6 +870,59 @@ class DroneShow():
         self.sim.set_parameters(width=1500, height=1500, pixel_ratio=0.9)
         self.sim.save(os.getcwd(),"final")
         print("Saved simulation to final.html")
+    
+    def save_metrics(self):
+        """Save distance metrics and total error to npz file and create plots"""
+        # Convert lists to numpy arrays
+        min_dist_agents_arr = np.array(self.hist_min_dist_agents)
+        min_dist_obs_arr = np.array(self.hist_min_dist_obs)
+        time_arr = np.array(self.hist_time)
+        total_error_first_wp_arr = np.array(self.hist_total_error_first_waypoint)
+        time_first_wp_arr = np.array(self.hist_time_first_waypoint)
+        
+        # Save to npz file
+        npz_filename = "simulation_metrics.npz"
+        np.savez(npz_filename,
+                 min_dist_agents=min_dist_agents_arr,
+                 min_dist_obs=min_dist_obs_arr,
+                 time=time_arr,
+                 total_error_first_waypoint=total_error_first_wp_arr,
+                 time_first_waypoint=time_first_wp_arr)
+        print(f"Saved metrics to {npz_filename}")
+        
+        # Create plots
+        fig, axes = plt.subplots(2, 1, figsize=(10, 8))
+        
+        # Plot 1: Minimum distances over time
+        axes[0].plot(time_arr, min_dist_agents_arr, label='Min Distance Inter-Drones', linewidth=2)
+        axes[0].plot(time_arr, min_dist_obs_arr, label='Min Distance Drones-Obstacles', linewidth=2)
+        axes[0].set_xlabel('Time (s)', fontsize=12)
+        axes[0].set_ylabel('Distance (m)', fontsize=12)
+        axes[0].set_title('Minimum Distances Over Time', fontsize=14, fontweight='bold')
+        axes[0].legend(fontsize=11)
+        axes[0].grid(True, alpha=0.3)
+        axes[0].set_ylim(bottom=0)
+        
+        # Plot 2: Total error for first waypoint
+        if len(total_error_first_wp_arr) > 0:
+            axes[1].plot(time_first_wp_arr, total_error_first_wp_arr, label='Total Error (First Waypoint)', 
+                        linewidth=2, color='green')
+            axes[1].set_xlabel('Time (s)', fontsize=12)
+            axes[1].set_ylabel('Total Error (m)', fontsize=12)
+            axes[1].set_title('Total Error During First Waypoint Approach', fontsize=14, fontweight='bold')
+            axes[1].legend(fontsize=11)
+            axes[1].grid(True, alpha=0.3)
+            axes[1].set_ylim(bottom=0)
+        else:
+            axes[1].text(0.5, 0.5, 'No first waypoint data available', 
+                        ha='center', va='center', transform=axes[1].transAxes, fontsize=12)
+            axes[1].set_title('Total Error During First Waypoint Approach', fontsize=14, fontweight='bold')
+        
+        plt.tight_layout()
+        plot_filename = "simulation_metrics.png"
+        plt.savefig(plot_filename, dpi=150, bbox_inches='tight')
+        print(f"Saved plots to {plot_filename}")
+        plt.close()
 
 if __name__ == "__main__":
     if len(sys.argv) == 1:
@@ -857,4 +934,5 @@ if __name__ == "__main__":
     drone_show = DroneShow()
     drone_show.run()
     drone_show.save_simulation()
+    drone_show.save_metrics()
     print("\n\n\n\n\n\n") # Clean stdout

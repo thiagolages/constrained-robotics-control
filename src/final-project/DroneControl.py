@@ -6,7 +6,9 @@ class DroneControl():
         self.param_k = kwargs.get('param_k')
         self.param_eta = kwargs.get('param_eta')
         self.param_eta_v = kwargs.get('param_eta_v')
+        self.param_v_min = kwargs.get('param_v_min')
         self.param_v_max = kwargs.get('param_v_max')
+        self.param_a_min = kwargs.get('param_a_min')
         self.param_a_max = kwargs.get('param_a_max')
         self.param_radius = kwargs.get('param_radius')
         self.param_n_robots = kwargs.get('param_n_robots')
@@ -116,6 +118,7 @@ class DroneControl():
         A = np.matrix(np.zeros((0,3*n)))
         b = np.matrix(np.zeros((0,1)))
         
+        min_dist_moving_obs = 1e6
         min_dist_agents = 1e6
         min_dist_obs = 1e6
         
@@ -139,135 +142,155 @@ class DroneControl():
                 
         # Environment constraints
         for i in range(n):
-                dist = self.dofun(_q, i, _pc)
-                jac_dist = self.jac_dofun(_q, i, _pc)
-                dist_dot = (self.dofun(_q+self.dt*_q_dot, i, _pc)-self.dofun(_q-self.dt*_q_dot, i, _pc))/(2*self. dt)
-                dist_hess = ( (self.jac_dofun(_q+self.dt*_q_dot, i, _pc)-self.jac_dofun(_q-self.dt*_q_dot, i, _pc))/(2*self.dt))*_q_dot
-                
-                #Implement extra safety
-                dist_hess = min(dist_hess, 0)
-                
-                A = np.vstack((A, jac_dist))
-                b = np.vstack((b, -2*self.param_eta*dist_dot - (self.param_eta*self.param_eta)*dist-dist_hess ) )
-                
-                min_dist_obs = min(self.dofun_real(_q, i, _pc), min_dist_obs)
+            dist = self.dofun(_q, i, _pc)
+            jac_dist = self.jac_dofun(_q, i, _pc)
+            dist_dot = (self.dofun(_q+self.dt*_q_dot, i, _pc)-self.dofun(_q-self.dt*_q_dot, i, _pc))/(2*self. dt)
+            dist_hess = ( (self.jac_dofun(_q+self.dt*_q_dot, i, _pc)-self.jac_dofun(_q-self.dt*_q_dot, i, _pc))/(2*self.dt))*_q_dot
+            
+            #Implement extra safety
+            dist_hess = min(dist_hess, 0)
+            
+            A = np.vstack((A, jac_dist))
+            b = np.vstack((b, -2*self.param_eta*dist_dot - (self.param_eta*self.param_eta)*dist-dist_hess ) )
+            
+            # Calculate real distance
+            #min_dist_obs = min(self.dofun_real(_q, i, _pc), min_dist_obs)
+            # Use diffrentiable dist
+            min_dist_obs = min(dist, min_dist_obs)
 
 
         # Velocity and Acceleration limits
         idm = np.identity(3*n)
         onev = np.ones((3*n,1))
                     
+        # Acceleration
         A =   np.vstack((A, idm, -idm)) 
-        b =   np.vstack((b, -self.param_a_max*onev, -self.param_a_max*onev)) 
+        b =   np.vstack((b, self.param_a_min*onev, -self.param_a_max*onev)) 
             
+        # Velocity
         A =   np.vstack((A, idm, -idm)) 
-        b =   np.vstack((b, -2*self.param_eta_v*(_q_dot+self.param_v_max*onev), -2*self.param_eta_v*(self.param_v_max*onev-_q_dot) ))
+        b =   np.vstack((b, -2*self.param_eta_v*(_q_dot-self.param_v_min*onev), -2*self.param_eta_v*(self.param_v_max*onev-_q_dot) ))
         
         
-        for i in range(n):
-            jac_dist = np.zeros((1,3*n))
-            jac_dist[0,3*i+2] = -1.0
+        # Z limits
+        # for i in range(n):
+        #     jac_dist = np.zeros((1,3*n))
             
-            A =   np.vstack((A, jac_dist))
-            b =   np.vstack((b, -2*self.param_eta*(-_q_dot[3*i+2,-1])-(self.param_eta*self.param_eta)*( self.param_zmax+0.2 - _q[3*i+2,-1] ) )) 
+        #     # Z limit
+        #     jac_dist[0,3*i+2] = -1.0
+        #     A =   np.vstack((A, jac_dist))
+        #     b =   np.vstack((b, -2*self.param_eta*(-_q_dot[3*i+2,-1])-(self.param_eta*self.param_eta)*( self.param_zmax+0.2 - _q[3*i+2,-1] ) )) 
             
-            jac_dist[0,3*i+2] = 1.0
-            
-            A =   np.vstack((A, jac_dist))
-            b =   np.vstack((b, -2*self.param_eta*(_q_dot[3*i+2,-1])-(self.param_eta*self.param_eta)*(_q[3*i+2,-1]-self.param_radius) )) 
+        #     # Z limit (radius)
+        #     jac_dist[0,3*i+2] = 1.0
+        #     A =   np.vstack((A, jac_dist))
+        #     b =   np.vstack((b, -2*self.param_eta*(_q_dot[3*i+2,-1])-(self.param_eta*self.param_eta)*(_q[3*i+2,-1]-self.param_radius) )) 
         
         # Add constrainsts to moving obstacle
         if _obs_props is not None:
-                        # For each drone-obstacle pair, create a separate constraint
-            # For each obstacle
+            # For each drone-obstacle pair, create a separate constraint
             for obs_props in _obs_props:
-                final_A = np.zeros((1,3*n))
-                final_b = np.zeros((1,1))
-                eta = self.param_eta
-                _obs_pos=obs_props['position'](_t)
-                _obs_vel=obs_props['velocity'](_t)
-                _obs_acc=obs_props['acceleration'](_t)
-                _obs_radius=obs_props['radius']
+                for i in range(n):
+                    final_A = np.zeros((1,3*n))
+                    final_b = np.zeros((1,1))
+                    eta = self.param_eta
+                    _obs_pos=obs_props['position'](_t)
+                    _obs_vel=obs_props['velocity'](_t)
+                    _obs_acc=obs_props['acceleration'](_t)
+                    _obs_radius=obs_props['radius']
 
-                qi = _q[3*i:3*(i+1),:]
-                qdoti = _q_dot[3*i:3*(i+1),:]
-                obs_pos = _obs_pos[:,:]
-                obs_vel = _obs_vel[:,:]
-                obs_acc = _obs_acc[:,:]
-                obs_radius = _obs_radius
+                    # print("_obs_pos.shape = {}".format(_obs_pos.shape))
+                    # print("_obs_vel.shape = {}".format(_obs_vel.shape))
+                    # print("_obs_acc.shape = {}".format(_obs_acc.shape))
+                    # print("_obs_radius = {}".format(_obs_radius))
+                    # print("_obs_pos = {}".format(_obs_pos))
+                    # print("_obs_vel = {}".format(_obs_vel))
+                    # print("_obs_acc = {}".format(_obs_acc))
+                    # print("_obs_radius = {}".format(_obs_radius))
 
-                # print("qi.shape = {}".format(qi.shape))
-                # print("qi = {}".format(qi))
-                # print("qdoti.shape = {}".format(qdoti.shape))
-                # print("qdoti = {}".format(qdoti))
-                # print("obs_pos.shape = {}".format(obs_pos.shape))
-                # print("obs_pos = {}".format(obs_pos))
-                # print("obs_vel.shape = {}".format(obs_vel.shape))
-                # print("obs_acc.shape = {}".format(obs_acc.shape))
-                # print("obs_radius = {}".format(obs_radius))
-                # print("self.param_delta = {}".format(self.param_delta))
+                    qi = _q[3*i:3*(i+1),:] # 3x1
+                    qdoti = _q_dot[3*i:3*(i+1),:] # 3x1
+                    obs_pos = _obs_pos # 3x1
+                    obs_vel = _obs_vel # 3x1
+                    obs_acc = _obs_acc # 3x1
+                    obs_radius = _obs_radius
+
+                    # print("qi.shape = {}".format(qi.shape))
+                    # print("qi = {}".format(qi))
+                    # print("qdoti.shape = {}".format(qdoti.shape))
+                    # print("qdoti = {}".format(qdoti))
+                    # print("obs_pos.shape = {}".format(obs_pos.shape))
+                    # print("obs_pos = {}".format(obs_pos))
+                    # print("obs_vel.shape = {}".format(obs_vel.shape))
+                    # print("obs_acc.shape = {}".format(obs_acc.shape))
+                    # print("obs_radius = {}".format(obs_radius))
+                    # print("self.param_delta = {}".format(self.param_delta))
+                        
+                    q_err = qi - obs_pos # 3x1
+                    # print("q_err.shape = {}".format(q_err.shape))
+
+                    # Define B = ||qi - obs_pos||^2 - obs_radius^2 - delta
+                    B = np.linalg.norm(q_err)**2 - (obs_radius)**2 - (self.param_radius)**2 - self.param_delta # 1x1
+                    # print("B.shape = {}".format(B.shape))
+                    # print("B = {}".format(B))
+
+                    # First partial derivative of B with respect to time
+                    # B_dot = dB/dq * q_dot + dB/dt
+                    # dB/dq = 2*(qi - obs_pos)^T = 2*q_err^T
+                    dB_dq = 2*q_err.T # 1x3
+                    # print("dB_dq.shape = {}".format(dB_dq.shape))
                     
-                qi_err = qi - obs_pos
-                # print("qi_err.shape = {}".format(qi_err.shape))
-
-                # Define B = ||qi - obs_pos||^2 - obs_radius^2 - delta
-                B = np.linalg.norm(qi_err)**2 - obs_radius**2 - self.param_delta
-                # print("B.shape = {}".format(B.shape))
-                # print("B = {}".format(B))
-
-                # First partial derivative of B with respect to time
-                # B_dot = dB/dq * q_dot + dB/dt
-                # dB/dq = 2*(qi - obs_pos)^T = 2*qi_err^T
-                dB_dq = 2*qi_err.T
-                # print("dB_dq.shape = {}".format(dB_dq.shape))
-                
-                # dB/dt = d/dt(||qi - obs_pos||^2) = 2*(qi - obs_pos)^T * (-obs_vel) = -2*qi_err^T*obs_vel
-                # Note: obs_vel.T*qi_err = qi_err^T*obs_vel (both are scalars)
-                dB_dt = 2*obs_vel.T*(-qi_err)
-                
-                B_dot = dB_dq*qdoti + dB_dt
-                # print("qdoti.shape = {}".format(qdoti.shape))
-                # print("B_dot.shape = {}".format(B_dot.shape))
-                
-                # Second partial derivative of B with respect to q
-                # d²B/dq² = 2*I (since B is quadratic in q)
-                d2B_dq2 = 2*np.eye(3)
-                # print("d2B_dq2.shape = {}".format(d2B_dq2.shape))
-                
-                # Second partial derivative of B with respect to q then t
-                # d²B/dqdt = d/dq(dB/dt) = d/dq(-2*qi_err^T*obs_vel) = -2*obs_vel^T
-                d2B_dqdt = -2*obs_vel.T
-                
-                # Second partial derivative of B with respect to time
-                # d²B/dt² = d/dt(dB/dt) = d/dt(-2*qi_err^T*obs_vel)
-                #         = -2*(-obs_vel)^T*obs_vel - 2*qi_err^T*obs_acc
-                #         = 2*obs_vel^T*obs_vel - 2*qi_err^T*obs_acc
-                # Note: qi_err^T*obs_acc = obs_acc^T*qi_err
-                d2B_dt2 = 2*obs_acc.T*(-qi_err) + 2*obs_vel.T*obs_vel
-                # print("d2B_dt2.shape = {}".format(d2B_dt2.shape))
-                
-                # Second-order CBF constraint: dB/dq * u >= -2*eta*B_dot - eta^2*B - qdoti^T*d2B_dq2*qdoti - d2B_dqdt*qdoti - d2B_dt2
-                t1 = -2*eta*B_dot
-                t2 = -eta**2*B
-                # print("t2.shape = {}".format(t2.shape))
-                # print("t2 = {}".format(t2))
-                t3 = -qdoti.T*d2B_dq2*qdoti
-                # print("t3.shape = {}".format(t3.shape))
-                # print("t3 = {}".format(t3))
-                t4 = -d2B_dqdt*qdoti
-                # print("t4.shape = {}".format(t4.shape))
-                # print("t4 = {}".format(t4))
-                t5 = -d2B_dt2
-                # print("t5.shape = {}".format(t5.shape))
-                # print("t5 = {}".format(t5))
-                grad_B = t1 + t2 + t3 + t4 + t5
-                
-                final_A[0,3*i:3*(i+1)] = dB_dq.T.flatten()
-                final_b[0,0] = grad_B
-                
-                # Add constraint immediately (one per drone-obstacle pair)
-                A = np.vstack( (A, final_A) )
-                b = np.vstack( (b, final_b) )
+                    # dB/dt = d/dt(||qi - obs_pos||^2) = 2*(qi - obs_pos)^T * (-obs_vel) = -2*q_err^T*obs_vel
+                    # Note: obs_vel.T*q_err = q_err^T*obs_vel (both are scalars)
+                    dB_dt = 2*obs_vel.T*(-q_err) # 1x1
+                    
+                    B_dot = dB_dq*qdoti + dB_dt # 1x1
+                    # print("qdoti.shape = {}".format(qdoti.shape))
+                    # print("B_dot.shape = {}".format(B_dot.shape))
+                    
+                    # Second partial derivative of B with respect to q
+                    # d²B/dq² = 2*I (since B is quadratic in q)
+                    d2B_dq2 = 2*np.eye(3) # 3x3
+                    # print("d2B_dq2.shape = {}".format(d2B_dq2.shape))
+                    
+                    # Second partial derivative of B with respect to q then t
+                    # d²B/dqdt = d/dq(dB/dt) = d/dq(-2*q_err^T*obs_vel) = -2*obs_vel^T
+                    d2B_dqdt = -2*obs_vel.T # 1x3
+                    
+                    # Second partial derivative of B with respect to time
+                    # d²B/dt² = d/dt(dB/dt) = d/dt(-2*q_err^T*obs_vel)
+                    #         = -2*(-obs_vel)^T*obs_vel - 2*q_err^T*obs_acc
+                    #         = 2*obs_vel^T*obs_vel - 2*q_err^T*obs_acc
+                    # Note: q_err^T*obs_acc = obs_acc^T*q_err
+                    d2B_dt2 = 2*obs_acc.T*(-q_err) + 2*obs_vel.T*obs_vel # 1x1
+                    # print("d2B_dt2.shape = {}".format(d2B_dt2.shape))
+                    
+                    # Second-order CBF constraint: dB/dq * u >= -2*eta*B_dot - eta^2*B - qdoti^T*d2B_dq2*qdoti - d2B_dqdt*qdoti - d2B_dt2
+                    t1 = -2*eta*B_dot # 1x1
+                    t2 = -eta**2*B # 1x1
+                    # print("t2.shape = {}".format(t2.shape))
+                    # print("t2 = {}".format(t2))
+                    t3 = -qdoti.T*d2B_dq2*qdoti # 1x1
+                    # print("t3.shape = {}".format(t3.shape))
+                    # print("t3 = {}".format(t3))
+                    t4 = -d2B_dqdt*qdoti # 1x1
+                    # print("t4.shape = {}".format(t4.shape))
+                    # print("t4 = {}".format(t4))
+                    t5 = -d2B_dt2 # 1x1
+                    # print("t5.shape = {}".format(t5.shape))
+                    # print("t5 = {}".format(t5))
+                    grad_B = t1 + t2 + t3 + t4 + t5 # 1x1
+                    
+                    final_A[0,3*i:3*(i+1)] = dB_dq.T.flatten() # 3x1
+                    final_b[0,0] = grad_B.flatten()
+                    # final_A = dB_dq.T.flatten()
+                    # final_b[0,0] = grad_B.flatten()
+                    
+                    # Add constraint immediately (one per drone-obstacle pair)
+                    A = np.vstack( (A, final_A) )
+                    b = np.vstack( (b, final_b) )
+                    
+                    min_dist_moving_obs = min(min_dist_moving_obs, dist)
 
         try:                 
             return ub.Utils.solve_qp(H,f,A,b), min_dist_agents, min_dist_obs
